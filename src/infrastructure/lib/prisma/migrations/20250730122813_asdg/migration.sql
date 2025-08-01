@@ -1,0 +1,2 @@
+-- AddForeignKey
+ALTER TABLE "Mijoz" ADD CONSTRAINT "Mijoz_sellerId_fkey" FOREIGN KEY ("sellerId") REFERENCES "Seller"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

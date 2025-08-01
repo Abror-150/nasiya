@@ -1,0 +1,51 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
+import { SellerService } from './seller.service';
+import { CreateSellerDto } from './dto/create-seller.dto';
+import { UpdateSellerDto } from './dto/update-seller.dto';
+import { RbucGuard } from 'src/common/guard/rbuc.guard';
+import { JwtAuthGuard } from 'src/common/guard/jwt-authGuard';
+import { Roles } from 'src/common/decorator/rbuc.decorator';
+
+@Controller('seller')
+export class SellerController {
+  constructor(private readonly sellerService: SellerService) {}
+  @UseGuards(JwtAuthGuard, RbucGuard)
+  @Roles('admin')
+  @Post()
+  create(@Body() createSellerDto: CreateSellerDto) {
+    return this.sellerService.Register(createSellerDto);
+  }
+  @UseGuards(JwtAuthGuard, RbucGuard)
+  @Roles('admin')
+  @Get()
+  findAll() {
+    return this.sellerService.findAll();
+  }
+  @UseGuards(JwtAuthGuard, RbucGuard)
+  @Roles('admin')
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.sellerService.findOne(id);
+  }
+  @UseGuards(JwtAuthGuard, RbucGuard)
+  @Roles('admin')
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateSellerDto: UpdateSellerDto) {
+    return this.sellerService.update(id, updateSellerDto);
+  }
+  @UseGuards(JwtAuthGuard, RbucGuard)
+  @Roles('admin')
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.sellerService.remove(id);
+  }
+}

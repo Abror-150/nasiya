@@ -1,0 +1,124 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Seller {
+  id       String   @id @default(uuid())
+  userName String
+  password String
+  phone    String
+  email    String
+  balance  Int
+  Namuna   Namuna[]
+  Mijoz    Mijoz[]
+}
+
+model Admin {
+  id       String @id @default(uuid())
+  userName String
+  password String
+  phone    String
+  email    String
+}
+
+model Mijoz {
+  id           String         @id @default(uuid())
+  name         String
+  address      String
+  note         String
+  sellerId     String
+  ImagesClient ImagesClient[]
+  PhoneClient  PhoneClient[]
+  Message      Message[]
+  Debt         Debt[]
+  seller       Seller         @relation(fields: [sellerId], references: [id])
+}
+
+model PhoneClient {
+  id          String @id @default(uuid())
+  phoneNumber String
+  mijozId     String
+  mijoz       Mijoz  @relation(fields: [mijozId], references: [id])
+}
+
+model ImagesClient {
+  id      String @id @default(uuid())
+  url     String
+  mijozId String
+
+  mijoz Mijoz @relation(fields: [mijozId], references: [id])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  mijozId   String
+  text      String
+  creadetAt DateTime @default(now())
+
+  mijoz Mijoz @relation(fields: [mijozId], references: [id])
+}
+
+model Debt {
+  id         String       @id @default(uuid())
+  name       String
+  date       DateTime     @default(now())
+  amount     Int
+  muddat     String
+  note       String
+  mijozId    String
+  mijoz      Mijoz        @relation(fields: [mijozId], references: [id])
+  ImagesDebt ImagesDebt[]
+  PhoneDebt  PhoneDebt[]
+  Tolovlar   Tolovlar[]
+}
+
+model PhoneDebt {
+  id          String @id @default(uuid())
+  phoneNumber String
+  debtId      String
+  debt        Debt   @relation(fields: [debtId], references: [id])
+}
+
+model ImagesDebt {
+  id     String @id @default(uuid())
+  url    String
+  debtId String
+
+  debt Debt @relation(fields: [debtId], references: [id])
+}
+
+model Tolovlar {
+  id       String     @id @default(uuid())
+  debtId   String
+  amount   Int
+  date     DateTime   @default(now())
+  method   methodType
+  duration String
+  debt     Debt       @relation(fields: [debtId], references: [id])
+}
+
+enum methodType {
+  FULL
+  PARTIAL
+  BY_DURATION
+}
+
+model Namuna {
+  id        String     @id @default(uuid())
+  text      Int
+  sellerId  String
+  isActive  methodType
+  creadetAt DateTime   @default(now())
+  seller    Seller     @relation(fields: [sellerId], references: [id])
+}
