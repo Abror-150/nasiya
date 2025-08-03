@@ -39,7 +39,6 @@ export class MijozController {
     name: 'search',
     required: false,
     type: String,
-    example: 'search',
   })
   async findAll(
     @Query('page') page?: number,

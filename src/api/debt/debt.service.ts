@@ -19,7 +19,7 @@ export class DebtService {
         note,
         mijozId,
         PhoneDebt: {
-          create: phones?.map((p) => ({ phoneNumber: p})) || [],
+          create: phones?.map((p) => ({ phoneNumber: p })) || [],
         },
         ImagesDebt: {
           create: images?.map((img) => ({ url: img })) || [],
@@ -100,6 +100,7 @@ export class DebtService {
 
   async remove(id: string) {
     await this.findOne(id);
+
     await this.prisma.debt.delete({ where: { id } });
     return { message: 'Qarz o‘chirildi' };
   }

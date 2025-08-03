@@ -4,6 +4,9 @@ import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { config } from 'src/config';
 import * as basicAuth from 'express-basic-auth';
+import * as express from 'express';
+import * as path from 'path';
+
 @Injectable()
 export class Application {
   public static async main(): Promise<void> {
@@ -28,6 +31,7 @@ export class Application {
       .build();
     const documentFactory = () =>
       SwaggerModule.createDocument(app, configSwagger);
+    app.use('/images', express.static(path.join(process.cwd(), 'images')));
     SwaggerModule.setup('api', app, documentFactory);
     await app.listen(config.API_PORT, () => {
       console.log(Date.now());

@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Namuna" ALTER COLUMN "text" SET DATA TYPE TEXT;

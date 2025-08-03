@@ -49,7 +49,7 @@ model PhoneClient {
   id          String @id @default(uuid())
   phoneNumber String
   mijozId     String
-  mijoz       Mijoz  @relation(fields: [mijozId], references: [id])
+  mijoz       Mijoz  @relation(fields: [mijozId], references: [id], onDelete: Cascade)
 }
 
 model ImagesClient {
@@ -57,16 +57,23 @@ model ImagesClient {
   url     String
   mijozId String
 
-  mijoz Mijoz @relation(fields: [mijozId], references: [id])
+  mijoz Mijoz @relation(fields: [mijozId], references: [id], onDelete: Cascade)
 }
 
 model Message {
-  id        String   @id @default(uuid())
+  id        String        @id @default(uuid())
   mijozId   String
   text      String
-  creadetAt DateTime @default(now())
+  status    MessageStatus @default(PENDING)
+  creadetAt DateTime      @default(now())
 
-  mijoz Mijoz @relation(fields: [mijozId], references: [id])
+  mijoz Mijoz @relation(fields: [mijozId], references: [id], onDelete: Cascade)
+}
+
+enum MessageStatus {
+  SENT
+  FAILED
+  PENDING
 }
 
 model Debt {
@@ -74,6 +81,7 @@ model Debt {
   name       String
   date       DateTime     @default(now())
   amount     Int
+  paidAmount Int          @default(0)
   muddat     String
   note       String
   mijozId    String
@@ -87,7 +95,7 @@ model PhoneDebt {
   id          String @id @default(uuid())
   phoneNumber String
   debtId      String
-  debt        Debt   @relation(fields: [debtId], references: [id])
+  debt        Debt   @relation(fields: [debtId], references: [id], onDelete: Cascade)
 }
 
 model ImagesDebt {
@@ -95,7 +103,7 @@ model ImagesDebt {
   url    String
   debtId String
 
-  debt Debt @relation(fields: [debtId], references: [id])
+  debt Debt @relation(fields: [debtId], references: [id], onDelete: Cascade)
 }
 
 model Tolovlar {
@@ -104,21 +112,36 @@ model Tolovlar {
   amount   Int
   date     DateTime   @default(now())
   method   methodType
-  duration String
-  debt     Debt       @relation(fields: [debtId], references: [id])
+  duration String?
+  months   Int[]
+  debt     Debt       @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  TolovOy  TolovOy[]
+}
+
+model TolovOy {
+  id            String     @id @default(uuid())
+  month         Int
+  tolovId       String
+  status        statusType
+  partialAmount Int?
+  tolov         Tolovlar   @relation(fields: [tolovId], references: [id], onDelete: Cascade)
 }
 
 enum methodType {
-  FULL
-  PARTIAL
-  BY_DURATION
+  ONE_MONTH
+  CUSTOM
+  MULTI_MONTH
+}
+
+enum statusType {
+  PAID
+  UNPAID
 }
 
 model Namuna {
-  id        String     @id @default(uuid())
-  text      Int
+  id        String   @id @default(uuid())
+  text      String
   sellerId  String
-  isActive  methodType
-  creadetAt DateTime   @default(now())
-  seller    Seller     @relation(fields: [sellerId], references: [id])
+  creadetAt DateTime @default(now())
+  seller    Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 }

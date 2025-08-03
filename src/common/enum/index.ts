@@ -1,5 +1,5 @@
 export enum methodType2 {
-  FULL = 'FULL',
-  PARTIAL = 'PARTIAL',
-  BY_DURATION = 'BY_DURATION',
+  ONE_MONTH = 'ONE_MONTH',
+  CUSTOM = 'CUSTOM',
+  MULTI_MONTH = 'MULTI_MONTH',
 }

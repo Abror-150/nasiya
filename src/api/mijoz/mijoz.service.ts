@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateMijozDto } from './dto/create-mijoz.dto';
 import { UpdateMijozDto } from './dto/update-mijoz.dto';
 import { PrismaService } from 'src/infrastructure/lib/prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class MijozService {
@@ -43,45 +44,45 @@ export class MijozService {
     const page = query.page || 1;
     const limit: number = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
-    const search = query.search?.trim() || '';
+    const search = query.search?.trim();
 
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.mijoz.findMany({
-        where: {
+    const whereCondition: Prisma.MijozWhereInput = search
+      ? {
           name: {
             contains: search,
-            mode: 'insensitive',
+            mode: Prisma.QueryMode.insensitive,
+          },
+        }
+      : {};
+
+    const data = await this.prisma.mijoz.findMany({
+      where: whereCondition,
+      include: {
+        seller: {
+          select: {
+            id: true,
+            userName: true,
+            phone: true,
+            email: true,
           },
         },
-        include: {
-          seller: {
-            select: {
-              id: true,
-              userName: true,
-              phone: true,
-              email: true,
-            },
-          },
-        },
-        skip,
-        take: limit,
-      }),
-      this.prisma.mijoz.count({
-        where: {
-          name: {
-            contains: search,
-            mode: 'insensitive',
-          },
-        },
-      }),
-    ]);
+      },
+      skip,
+      take: limit,
+      orderBy: { name: 'asc' },
+    });
+    console.log(data);
+
+    const total = await this.prisma.mijoz.count({
+      where: whereCondition,
+    });
 
     return {
       total,
       page,
       limit,
-      data,
       totalPages: Math.ceil(total / limit),
+      data,
     };
   }
 

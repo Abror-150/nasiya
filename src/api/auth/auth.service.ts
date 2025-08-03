@@ -24,7 +24,6 @@ export class AuthService {
 
     const admin = await this.prisma.admin.findFirst({ where: { userName } });
 
-
     const user = seller || admin;
     const role = seller ? 'seller' : admin ? 'admin' : null;
 
@@ -44,6 +43,6 @@ export class AuthService {
       role,
     });
 
-    return { message: token };
+    return { token: token };
   }
 }
