@@ -22,7 +22,7 @@ export class CreateMultiMonthDto {
   @ApiProperty({ example: '2025-08-30' })
   @IsDateString()
   date: string;
-  @ApiProperty()
+  @ApiProperty({ type: [Number], example: [1, 2] })
   @IsArray()
   @ArrayMinSize(1)
   @IsNumber({}, { each: true })

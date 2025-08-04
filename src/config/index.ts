@@ -1,6 +1,12 @@
 import * as dotenv from 'dotenv';
 
 dotenv.config();
+const port = Number(process.env.API_PORT);
+console.log(port, 'port');
+
+if (isNaN(port)) {
+  throw new Error('❌ API_PORT noto‘g‘ri yoki aniqlanmagan .env faylda!');
+}
 export type ConfigType = {
   API_PORT: number;
 };

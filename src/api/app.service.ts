@@ -22,6 +22,7 @@ export class Application {
         },
       }),
     );
+    console.log(config.API_PORT, 'port2');
 
     const configSwagger = new DocumentBuilder()
       .setTitle('Nasiya savdo')
@@ -34,7 +35,7 @@ export class Application {
     app.use('/images', express.static(path.join(process.cwd(), 'images')));
     SwaggerModule.setup('api', app, documentFactory);
     await app.listen(config.API_PORT, () => {
-      console.log(Date.now());
+      console.log(`Server is running on port ${config.API_PORT}`);
     });
   }
 }

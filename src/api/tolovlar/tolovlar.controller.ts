@@ -42,6 +42,15 @@ export class TolovlarController {
   }
   @UseGuards(JwtAuthGuard, RbucGuard)
   @Roles('seller', 'admin')
+  @Get('history')
+  getSellerHistory(@Req() req) {
+    const sellerId = req.user.userId;
+    console.log(sellerId);
+
+    return this.tolovlarService.getTolovlarHistoryBySeller(sellerId);
+  }
+  @UseGuards(JwtAuthGuard, RbucGuard)
+  @Roles('seller', 'admin')
   @Get()
   async getAll() {
     return this.tolovlarService.findAll();
@@ -51,12 +60,5 @@ export class TolovlarController {
   @Get(':id')
   async getOne(@Param('id') id: string) {
     return this.tolovlarService.findOne(id);
-  }
-  @UseGuards(JwtAuthGuard, RbucGuard)
-  @Roles('seller', 'admin')
-  @Get('history')
-  getSellerHistory(@Req() req) {
-    const sellerId = req.user.userId;
-    return this.tolovlarService.getTolovlarHistoryBySeller(sellerId);
   }
 }

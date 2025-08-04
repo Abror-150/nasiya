@@ -23,13 +23,45 @@ export class TolovlarService {
     const month = unpaidMonths[0];
     if (!month) throw new BadRequestException('Barcha oylar to‘langan');
 
-    const payment = await this.savePayment(dto, monthlyAmount);
-    await this.prisma.tolovOy.create({
-      data: { tolovId: payment.id, month, status: statusType.PAID },
+    const existing = await this.prisma.tolovOy.findFirst({
+      where: {
+        tolov: { debtId: dto.debtId },
+        month,
+      },
     });
+
+    const paidSoFar =
+      existing?.status === statusType.UNPAID
+        ? monthlyAmount - (existing?.partialAmount ?? monthlyAmount)
+        : 0;
+
+    const remaining = monthlyAmount - paidSoFar;
+
+    const payment = await this.savePayment(dto, remaining);
+
+    if (existing) {
+      await this.prisma.tolovOy.update({
+        where: { id: existing.id },
+        data: {
+          partialAmount: 0,
+          status: statusType.PAID,
+          tolovId: payment.id,
+        },
+      });
+    } else {
+      await this.prisma.tolovOy.create({
+        data: {
+          tolovId: payment.id,
+          month,
+          status: statusType.PAID,
+          partialAmount: 0,
+        },
+      });
+    }
 
     return payment;
   }
+
   private parseMuddat(muddat: string): number {
     const match = muddat.match(/(\d+)\s*oy/i);
     if (!match) throw new BadRequestException('Muddat noto‘g‘ri formatda');
@@ -41,13 +73,6 @@ export class TolovlarService {
 
     if (!dto.amount || dto.amount < 1) {
       throw new BadRequestException('To‘lov summasi noto‘g‘ri');
-    }
-
-    const remainingDebt = debt.amount - debt.paidAmount;
-    if (dto.amount > remainingDebt) {
-      throw new BadRequestException(
-        'To‘lov summasi qolgan qarzdan oshib ketdi',
-      );
     }
 
     const totalMonths = this.parseMuddat(debt.muddat);
@@ -71,7 +96,8 @@ export class TolovlarService {
         },
       });
 
-      const remaining = existing?.partialAmount ?? monthlyAmount;
+      const paidSoFar = existing?.partialAmount ?? 0;
+      const remaining = monthlyAmount - paidSoFar;
 
       if (amountLeft >= remaining) {
         if (existing) {
@@ -95,14 +121,16 @@ export class TolovlarService {
         }
         amountLeft -= remaining;
       } else {
-        const newRemaining = remaining - amountLeft;
-        const status = newRemaining <= 0 ? statusType.PAID : statusType.UNPAID;
+        const newPaid = paidSoFar + amountLeft;
+        const stillRemaining = monthlyAmount - newPaid;
+        const status =
+          stillRemaining <= 0 ? statusType.PAID : statusType.UNPAID;
 
         if (existing) {
           await this.prisma.tolovOy.update({
             where: { id: existing.id },
             data: {
-              partialAmount: newRemaining,
+              partialAmount: stillRemaining <= 0 ? 0 : stillRemaining,
               status,
               tolovId: payment.id,
             },
@@ -113,7 +141,7 @@ export class TolovlarService {
               tolovId: payment.id,
               month,
               status,
-              partialAmount: newRemaining,
+              partialAmount: stillRemaining <= 0 ? 0 : stillRemaining,
             },
           });
         }
@@ -127,31 +155,29 @@ export class TolovlarService {
 
   async createMultiMonth(dto: CreateMultiMonthDto) {
     const debt = await this.getDebt(dto.debtId);
-    if (!dto.months || dto.months.length === 0)
+
+    if (!dto.months || dto.months.length === 0) {
       throw new BadRequestException(
         'Oylar ro‘yxati bo‘sh bo‘lishi mumkin emas',
       );
+    }
+
     const totalMonths = this.parseMuddat(debt.muddat);
     const monthlyAmount = Math.floor(debt.amount / totalMonths);
 
-    const paidMonths = await this.prisma.tolovOy.findMany({
-      where: { tolov: { debtId: dto.debtId }, status: statusType.PAID },
-      select: { month: true },
-    });
-    const paidMonthNumbers = paidMonths.map((m) => m.month);
-
-    const filteredMonths = dto.months.filter(
-      (m) => !paidMonthNumbers.includes(m),
-    );
-    if (filteredMonths.length === 0)
-      throw new BadRequestException('Tanlangan oylar allaqachon to‘langan');
-    const sortedMonths = [...filteredMonths].sort((a, b) => a - b);
+    const sortedMonths = [...dto.months].sort((a, b) => a - b);
     for (let i = 1; i < sortedMonths.length; i++) {
       if (sortedMonths[i] !== sortedMonths[i - 1] + 1) {
         throw new BadRequestException(
-          'Oylar ketma-ket tanlanishi kerak (masalan: 4,5,6).',
+          'Oylar ketma-ket tanlanishi kerak (masalan: 4,5,6)',
         );
       }
+    }
+    const invalidMonth = sortedMonths.find((m) => m > totalMonths);
+    if (invalidMonth) {
+      throw new BadRequestException(
+        `Siz faqat ${totalMonths} oyga qarz olgansiz. ${invalidMonth}-oy mavjud emas.`,
+      );
     }
 
     const unpaidMonths = await this.getUnpaidMonths(dto.debtId);
@@ -162,22 +188,71 @@ export class TolovlarService {
       );
     }
 
-    const amount = monthlyAmount * sortedMonths.length;
+    let totalAmount = 0;
+    const updates: {
+      existing?: string;
+      data: {
+        month: number;
+        partialAmount: number;
+        status: statusType;
+      };
+    }[] = [];
 
-    if (amount > debt.amount - debt.paidAmount)
+    for (const month of sortedMonths) {
+      const existing = await this.prisma.tolovOy.findFirst({
+        where: {
+          tolov: { debtId: dto.debtId },
+          month,
+        },
+      });
+
+      const paidSoFar = existing
+        ? existing.status === statusType.UNPAID
+          ? monthlyAmount - (existing.partialAmount ?? monthlyAmount)
+          : 0
+        : 0;
+
+      const remaining = monthlyAmount - paidSoFar;
+
+      totalAmount += remaining;
+
+      updates.push({
+        existing: existing?.id,
+        data: {
+          month,
+          partialAmount: 0,
+          status: statusType.PAID,
+        },
+      });
+    }
+
+    const remainingDebt = debt.amount - debt.paidAmount;
+    if (totalAmount > remainingDebt) {
       throw new BadRequestException(
         'Tanlangan oylar uchun to‘lov qarzdan oshib ketdi',
       );
+    }
 
-    const payment = await this.savePayment(dto, amount);
+    const payment = await this.savePayment(dto, totalAmount);
 
-    await this.prisma.tolovOy.createMany({
-      data: sortedMonths.map((month) => ({
-        tolovId: payment.id,
-        month,
-        status: statusType.PAID,
-      })),
-    });
+    for (const item of updates) {
+      if (item.existing) {
+        await this.prisma.tolovOy.update({
+          where: { id: item.existing },
+          data: {
+            ...item.data,
+            tolovId: payment.id,
+          },
+        });
+      } else {
+        await this.prisma.tolovOy.create({
+          data: {
+            ...item.data,
+            tolovId: payment.id,
+          },
+        });
+      }
+    }
 
     return payment;
   }
