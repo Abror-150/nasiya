@@ -40,6 +40,10 @@ export class TolovlarController {
   multiMonth(@Body() dto: CreateMultiMonthDto) {
     return this.tolovlarService.createMultiMonth(dto);
   }
+  @Get('late-payments')
+  async getLatePaymentsSummary() {
+    return this.tolovlarService.getLatePaymentsSummary();
+  }
   @UseGuards(JwtAuthGuard, RbucGuard)
   @Roles('seller', 'admin')
   @Get('history')

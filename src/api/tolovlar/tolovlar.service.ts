@@ -378,4 +378,46 @@ export class TolovlarService {
       payments,
     }));
   }
+  async getLatePaymentsSummary() {
+    const today = new Date();
+
+    const overduePayments = await this.prisma.tolovOy.findMany({
+      where: {
+        status: 'UNPAID',
+        tolov: {
+          date: {
+            lt: today,
+          },
+        },
+      },
+      select: {
+        tolov: {
+          select: {
+            debt: {
+              select: {
+                mijozId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const latePaymentsCount = overduePayments.length;
+
+    const uniqueClients = new Set<string>();
+    for (const item of overduePayments) {
+      const mijozId = item?.tolov?.debt?.mijozId;
+      if (mijozId) {
+        uniqueClients.add(mijozId);
+      }
+    }
+
+    const lateClientsCount = uniqueClients.size;
+
+    return {
+      kechiktirilganTolovlar: latePaymentsCount,
+      kechiktirganMijozlar: lateClientsCount,
+    };
+  }
 }
