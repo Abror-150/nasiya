@@ -79,4 +79,23 @@ export class SellerService {
     await this.prisma.seller.delete({ where: { id } });
     return { message: `ID ${id} bilan seller muvaffaqiyatli o‘chirildi.` };
   }
+  async me(sellerId: string) {
+    return this.prisma.seller.findFirst({
+      where: { id: sellerId },
+      include: {
+        Mijoz: {
+          select: {
+            id: true,
+            name: true,
+            PhoneClient: {
+              select: {
+                id: true,
+                phoneNumber: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
 }

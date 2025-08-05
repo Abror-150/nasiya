@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { SellerService } from './seller.service';
 import { CreateSellerDto } from './dto/create-seller.dto';
@@ -23,6 +24,12 @@ export class SellerController {
   @Post()
   create(@Body() createSellerDto: CreateSellerDto) {
     return this.sellerService.Register(createSellerDto);
+  }
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  getMySellerInfo(@Req() req) {
+    const sellerId = req.user.userId;
+    return this.sellerService.me(sellerId);
   }
   @UseGuards(JwtAuthGuard, RbucGuard)
   @Roles('admin')
