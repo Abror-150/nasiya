@@ -378,46 +378,42 @@ export class TolovlarService {
       payments,
     }));
   }
-  async getLatePaymentsSummary() {
+  async getDashboardStats(sellerId: string) {
     const today = new Date();
 
-    const overduePayments = await this.prisma.tolovOy.findMany({
+    const totalDebt = await this.prisma.debt.aggregate({
+      where: {
+        mijoz: {
+          sellerId,
+        },
+      },
+      _sum: { amount: true },
+    });
+
+    const latePayments = await this.prisma.tolovOy.count({
       where: {
         status: 'UNPAID',
         tolov: {
-          date: {
-            lt: today,
-          },
-        },
-      },
-      select: {
-        tolov: {
-          select: {
-            debt: {
-              select: {
-                mijozId: true,
-              },
+          date: { lt: today },
+          debt: {
+            mijoz: {
+              sellerId,
             },
           },
         },
       },
     });
 
-    const latePaymentsCount = overduePayments.length;
-
-    const uniqueClients = new Set<string>();
-    for (const item of overduePayments) {
-      const mijozId = item?.tolov?.debt?.mijozId;
-      if (mijozId) {
-        uniqueClients.add(mijozId);
-      }
-    }
-
-    const lateClientsCount = uniqueClients.size;
+    const clients = await this.prisma.mijoz.findMany({
+      where: { sellerId },
+      select: { id: true },
+    });
+    const clientCount = clients.length;
 
     return {
-      kechiktirilganTolovlar: latePaymentsCount,
-      kechiktirganMijozlar: lateClientsCount,
+      totalDebt: totalDebt._sum.amount ?? 0,
+      latePayments,
+      clientCount,
     };
   }
 }
