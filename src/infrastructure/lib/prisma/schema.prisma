@@ -20,6 +20,7 @@ model Seller {
   phone    String
   email    String
   balance  Int
+  img      String?
   Namuna   Namuna[]
   Mijoz    Mijoz[]
 }

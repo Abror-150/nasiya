@@ -6,6 +6,7 @@ import {
   IsEmail,
   IsNumber,
   Min,
+  IsOptional,
 } from 'class-validator';
 
 export class CreateSellerDto {
@@ -26,6 +27,10 @@ export class CreateSellerDto {
   @ApiProperty({ example: 'ali@example.com', description: 'Email manzil' })
   @IsEmail()
   email: string;
+
+  @ApiProperty({ example: 'url' })
+  @IsOptional()
+  img?: string;
 
   balance: number;
 }

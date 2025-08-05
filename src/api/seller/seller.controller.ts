@@ -15,6 +15,7 @@ import { UpdateSellerDto } from './dto/update-seller.dto';
 import { RbucGuard } from 'src/common/guard/rbuc.guard';
 import { JwtAuthGuard } from 'src/common/guard/jwt-authGuard';
 import { Roles } from 'src/common/decorator/rbuc.decorator';
+import { ApiBody } from '@nestjs/swagger';
 
 @Controller('seller')
 export class SellerController {
@@ -46,6 +47,7 @@ export class SellerController {
   @UseGuards(JwtAuthGuard, RbucGuard)
   @Roles('admin')
   @Patch(':id')
+  @ApiBody({ type: UpdateSellerDto })
   update(@Param('id') id: string, @Body() updateSellerDto: UpdateSellerDto) {
     return this.sellerService.update(id, updateSellerDto);
   }
