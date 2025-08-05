@@ -32,6 +32,10 @@ export class Application {
       .build();
     const documentFactory = () =>
       SwaggerModule.createDocument(app, configSwagger);
+    app.enableCors({
+      origin: 'http://localhost:5173',
+      credentials: true,
+    });
     app.use('/images', express.static(path.join(process.cwd(), 'images')));
     SwaggerModule.setup('api', app, documentFactory);
     await app.listen(config.API_PORT, () => {
