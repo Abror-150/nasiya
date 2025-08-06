@@ -256,6 +256,46 @@ export class TolovlarService {
 
     return payment;
   }
+  async getPaymentsByDate(sellerId: string, date: string) {
+    const targetDate = new Date(date);
+
+    const nextDate = new Date(targetDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+
+    const payments = await this.prisma.tolovlar.findMany({
+      where: {
+        date: {
+          gte: targetDate,
+          lt: nextDate,
+        },
+        debt: {
+          mijoz: {
+            sellerId,
+          },
+        },
+      },
+      select: {
+        amount: true,
+        date: true,
+        debt: {
+          select: {
+            mijoz: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    return payments.map((p) => ({
+      name: p.debt.mijoz.name,
+      amount: p.amount,
+      date: p.date,
+    }));
+  }
 
   private async getUnpaidMonths(debtId: string): Promise<number[]> {
     const allMonths = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -293,6 +333,7 @@ export class TolovlarService {
     if (!debt) throw new NotFoundException('Bunday qarz topilmadi');
     return debt;
   }
+
   async findAll() {
     const tolovlar = await this.prisma.tolovlar.findMany({
       orderBy: { date: 'desc' },
@@ -387,7 +428,10 @@ export class TolovlarService {
           sellerId,
         },
       },
-      _sum: { amount: true },
+      _sum: {
+        amount: true,
+        paidAmount: true,
+      },
     });
 
     const latePayments = await this.prisma.tolovOy.count({
@@ -408,12 +452,49 @@ export class TolovlarService {
       where: { sellerId },
       select: { id: true },
     });
+
     const clientCount = clients.length;
 
+    const amount = totalDebt._sum.amount ?? 0;
+    const paid = totalDebt._sum.paidAmount ?? 0;
+
     return {
-      totalDebt: totalDebt._sum.amount ?? 0,
+      totalDebt: amount,
+      totalPaid: paid,
+      totalRemaining: amount - paid,
       latePayments,
       clientCount,
+    };
+  }
+
+  async getMonthlyTotal(sellerId: string, year: number, month: number) {
+    const fromDate = new Date(
+      `${year}-${month.toString().padStart(2, '0')}-01`,
+    );
+    const toDate = new Date(fromDate);
+    toDate.setMonth(toDate.getMonth() + 1);
+
+    const total = await this.prisma.tolovlar.aggregate({
+      where: {
+        date: {
+          gte: fromDate,
+          lt: toDate,
+        },
+        debt: {
+          mijoz: {
+            sellerId,
+          },
+        },
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+
+    return {
+      year,
+      month,
+      total: total._sum.amount ?? 0,
     };
   }
 }
