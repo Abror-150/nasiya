@@ -104,4 +104,64 @@ export class DebtService {
     await this.prisma.debt.delete({ where: { id } });
     return { message: 'Qarz o‘chirildi' };
   }
+  async getExpectedPaymentsByDate(sellerId: string, date: string) {
+    const targetDate = new Date(date);
+    const targetISO = targetDate.toISOString().split('T')[0];
+
+    const allUnpaid = await this.prisma.tolovOy.findMany({
+      where: {
+        status: 'UNPAID',
+        tolov: {
+          debt: {
+            mijoz: {
+              sellerId,
+            },
+          },
+        },
+      },
+      include: {
+        tolov: {
+          select: {
+            amount: true,
+            date: true,
+            debt: {
+              select: {
+                date: true,
+                mijoz: {
+                  select: {
+                    name: true,
+                    PhoneClient: {
+                      select: {
+                        phoneNumber: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const filtered = allUnpaid.filter((item) => {
+      const debtStartDate = new Date(item.tolov.debt.date);
+
+      const expectedDate = new Date(
+        debtStartDate.getFullYear(),
+        debtStartDate.getMonth() + item.month,
+        debtStartDate.getDate(),
+      );
+
+      const expectedISO = expectedDate.toISOString().split('T')[0];
+      return expectedISO === targetISO;
+    });
+
+    return filtered.map((item) => ({
+      name: item.tolov.debt.mijoz.name,
+      phone: item.tolov.debt.mijoz.PhoneClient,
+      expectedDate: targetISO,
+      remaining: item.partialAmount ?? item.tolov.amount,
+    }));
+  }
 }

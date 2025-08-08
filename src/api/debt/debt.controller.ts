@@ -6,10 +6,14 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { DebtService } from './debt.service';
 import { CreateDebtDto } from './dto/create-debt.dto';
 import { UpdateDebtDto } from './dto/update-debt.dto';
+import { JwtAuthGuard } from 'src/common/guard/jwt-authGuard';
 
 @Controller('debt')
 export class DebtController {
@@ -23,6 +27,12 @@ export class DebtController {
   @Get()
   findAll() {
     return this.debtService.findAll();
+  }
+  @UseGuards(JwtAuthGuard)
+  @Get('expected-payments')
+  async getExpectedPayments(@Req() req, @Query('date') date: string) {
+    const sellerId = req.user.userId;
+    return this.debtService.getExpectedPaymentsByDate(sellerId, date);
   }
 
   @Get(':id')

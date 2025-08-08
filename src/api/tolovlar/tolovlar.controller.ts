@@ -8,12 +8,9 @@ import {
   Delete,
   Req,
   UseGuards,
-  BadRequestException,
   Query,
 } from '@nestjs/common';
 import { TolovlarService } from './tolovlar.service';
-import { UpdateTolovlarDto } from './dto/update-tolovlar.dto';
-import { CreateTolovlarDto } from './dto/createTolovDto';
 import { CreateOneMonthDto } from './dto/create-OneMonthDto';
 import { CreateCustomDto } from './dto/create-CustonDto';
 import { CreateMultiMonthDto } from './dto/create-MultiMontDto';
@@ -58,33 +55,29 @@ export class TolovlarController {
 
     return this.tolovlarService.getTolovlarHistoryBySeller(sellerId);
   }
+  @UseGuards(JwtAuthGuard)
+  @Get('stats')
+  async getTotalNasiya(@Req() req) {
+    const sellerId = req.user.userId;
+    console.log(sellerId, 'asdg');
+
+    return this.tolovlarService.getTotalNasiyaFromSchedules(sellerId);
+  }
   @UseGuards(JwtAuthGuard, RbucGuard)
   @Roles('seller', 'admin')
   @Get()
   async getAll() {
     return this.tolovlarService.findAll();
   }
-  @Get('monthly-total')
-  @UseGuards(JwtAuthGuard)
-  async getMonthlyTotal(
-    @Query('year') year: string,
-    @Query('month') month: string,
-    @Req() req,
-  ) {
-    const sellerId = req.user.userId;
+  // @UseGuards(JwtAuthGuard)
+  // @Get('unpaid-monthly-total')
+  // async getUnpaidMonthlyTotal(@Query('date') date: string, @Req() req) {
+  //   const user: any = req.user.userId;
+  //   const sellerId = user.id;
 
-    const yearNum = parseInt(year, 10);
-    const monthNum = parseInt(month, 10);
+  //   return this.tolovlarService.getExpectedMonthlyUnpaidTotal(sellerId, date);
+  // }
 
-    return this.tolovlarService.getMonthlyTotal(sellerId, yearNum, monthNum);
-  }
-  @Get('by-date')
-  @UseGuards(JwtAuthGuard)
-  async getByDate(@Query('date') date: string, @Req() req) {
-    const sellerId = req.user.userId;
-
-    return this.tolovlarService.getPaymentsByDate(sellerId, date);
-  }
   @UseGuards(JwtAuthGuard, RbucGuard)
   @Roles('seller', 'admin')
   @Get(':id')

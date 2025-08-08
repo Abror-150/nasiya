@@ -256,46 +256,6 @@ export class TolovlarService {
 
     return payment;
   }
-  async getPaymentsByDate(sellerId: string, date: string) {
-    const targetDate = new Date(date);
-
-    const nextDate = new Date(targetDate);
-    nextDate.setDate(nextDate.getDate() + 1);
-
-    const payments = await this.prisma.tolovlar.findMany({
-      where: {
-        date: {
-          gte: targetDate,
-          lt: nextDate,
-        },
-        debt: {
-          mijoz: {
-            sellerId,
-          },
-        },
-      },
-      select: {
-        amount: true,
-        date: true,
-        debt: {
-          select: {
-            mijoz: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { date: 'asc' },
-    });
-
-    return payments.map((p) => ({
-      name: p.debt.mijoz.name,
-      amount: p.amount,
-      date: p.date,
-    }));
-  }
 
   private async getUnpaidMonths(debtId: string): Promise<number[]> {
     const allMonths = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -467,34 +427,117 @@ export class TolovlarService {
     };
   }
 
-  async getMonthlyTotal(sellerId: string, year: number, month: number) {
-    const fromDate = new Date(
-      `${year}-${month.toString().padStart(2, '0')}-01`,
-    );
-    const toDate = new Date(fromDate);
-    toDate.setMonth(toDate.getMonth() + 1);
+  // async getExpectedMonthlyUnpaidTotal(sellerId: string, date: string) {
+  //   const targetDate = new Date(date);
+  //   const year = targetDate.getFullYear();
+  //   const month = targetDate.getMonth() + 1;
 
-    const total = await this.prisma.tolovlar.aggregate({
+  //   const fromDate = new Date(`${year}-${month.toString().padStart(2, '0')}-01`);
+  //   const toDate = new Date(fromDate);
+  //   toDate.setMonth(toDate.getMonth() + 1);
+
+  //   // Faqat UNPAID bo'lgan oylar uchun hisoblash
+  //   const unpaid = await this.prisma.tolovOy.findMany({
+  //     where: {
+  //       status: 'UNPAID',
+  //       tolov: {
+  //         date: {
+  //           gte: fromDate,
+  //           lt: toDate,
+  //         },
+  //         debt: {
+  //           mijoz: {
+  //             sellerId,
+  //           },
+  //         },
+  //       },
+  //     },
+  //     select: {
+  //       partialAmount: true,
+  //       tolov: {
+  //         select: {
+  //           amount: true,
+  //         },
+  //       },
+  //     },
+  //   });
+
+  //   const totalUnpaid = unpaid.reduce((acc, item) => {
+  //     const remaining =
+  //       item.tolov.amount - (item.partialAmount ?? 0);
+  //     return acc + remaining;
+  //   }, 0);
+
+  //   return {
+  //     year,
+  //     month,
+  //     unpaidTotal: totalUnpaid,
+  //   };
+  // }
+
+  async getTotalNasiyaFromSchedules(sellerId?: string) {
+    const items = await this.prisma.tolovOy.findMany({
       where: {
-        date: {
-          gte: fromDate,
-          lt: toDate,
-        },
-        debt: {
-          mijoz: {
-            sellerId,
+        status: 'UNPAID',
+        tolov: {
+          debt: {
+            mijoz: sellerId ? { sellerId } : undefined,
           },
         },
       },
-      _sum: {
-        amount: true,
+      select: {
+        partialAmount: true,
+        tolov: {
+          select: {
+            debt: {
+              select: {
+                amount: true,
+                muddat: true,
+                mijoz: {
+                  select: {
+                    id: true,
+                    name: true,
+                    PhoneClient: {
+                      select: {
+                        phoneNumber: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
-    return {
-      year,
-      month,
-      total: total._sum.amount ?? 0,
-    };
+    const results: Record<
+      string,
+      { name: string; phone: string; total: number }
+    > = {};
+
+    for (const it of items) {
+      const debt = it.tolov.debt;
+      const muddatOy = parseInt(debt.muddat.replace(/\D/g, ''), 10) || 0;
+      const monthly = muddatOy > 0 ? Math.floor(debt.amount / muddatOy) : 0;
+      const remaining = Math.max(monthly - (it.partialAmount ?? 0), 0);
+
+      const mijozId = debt.mijoz.id;
+      const name = debt.mijoz.name;
+      const phone = debt.mijoz.PhoneClient?.[0]?.phoneNumber || '';
+
+      if (!results[mijozId]) {
+        results[mijozId] = { name, phone, total: 0 };
+      }
+
+      results[mijozId].total += remaining;
+    }
+
+    return Object.entries(results).map(([mijozId, data]) => ({
+      mijozId,
+      name: data.name,
+      phone: data.phone,
+      total: data.total,
+    }));
   }
 }
