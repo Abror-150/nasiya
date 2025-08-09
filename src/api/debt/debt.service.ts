@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/infrastructure/lib/prisma/prisma.service';
 import { CreateDebtDto } from './dto/create-debt.dto';
 import { UpdateDebtDto } from './dto/update-debt.dto';
@@ -134,18 +138,20 @@ export class DebtService {
     return `${y}-${m}-${day}`;
   }
 
-  async getExpectedPaymentsByDate(sellerId: string, date: string) {
-    const targetDate = new Date(date);
-    const targetMonth = targetDate.getMonth();
-    const targetYear = targetDate.getFullYear();
+  async getExpectedPaymentsByDate(sellerId: string, dateStr: string) {
+    if (!sellerId) throw new BadRequestException('sellerId topilmadi');
+    if (!dateStr) throw new BadRequestException('date kerak (YYYY-MM-DD)');
 
-    const payments = await this.prisma.tolovOy.findMany({
+    const from = new Date(`${dateStr}T00:00:00.000Z`);
+    const to = new Date(from);
+    to.setUTCDate(to.getUTCDate() + 1);
+
+    const rows = await this.prisma.tolovOy.findMany({
       where: {
         status: { in: ['UNPAID', 'PENDING'] as any },
         tolov: {
-          debt: {
-            mijoz: { sellerId },
-          },
+          date: { gte: from, lt: to },
+          debt: { mijoz: { sellerId } },
         },
       },
       select: {
@@ -161,7 +167,7 @@ export class DebtService {
                 mijoz: {
                   select: {
                     name: true,
-                    PhoneClient: { select: { phoneNumber: true } },
+                    PhoneClient: { select: { phoneNumber: true }, take: 1 },
                   },
                 },
               },
@@ -169,27 +175,25 @@ export class DebtService {
           },
         },
       },
+      orderBy: { tolov: { date: 'asc' } },
     });
 
-    const filtered = payments.filter((p) => {
-      const payDate = new Date(p.tolov.date);
-      return (
-        payDate.getMonth() === targetMonth &&
-        payDate.getFullYear() === targetYear
-      );
-    });
+    return rows.map((r) => {
+      const debt = r.tolov.debt;
 
-    return filtered.map((p) => {
-      const debt = p.tolov.debt;
       const muddatOy =
-        parseInt(String(debt.muddat).replace(/\D/g, ''), 10) || 0;
-      const monthly = muddatOy > 0 ? Math.floor(debt.amount / muddatOy) : 0;
-      const remaining = Math.max(monthly - (p.partialAmount ?? 0), 0);
+        parseInt(String(debt.muddat ?? '').replace(/\D/g, ''), 10) || 0;
+      const monthlyByDebt =
+        muddatOy > 0 ? Math.floor((debt.amount ?? 0) / muddatOy) : 0;
+      const monthly = r.tolov.amount ?? monthlyByDebt;
+
+      const paidPart = r.partialAmount ?? 0;
+      const remaining = Math.max(monthly - paidPart, 0);
 
       return {
         name: debt.mijoz.name,
-        phone: debt.mijoz.PhoneClient?.[0]?.phoneNumber || '',
-        payDate: this.formatYMD(p.tolov.date),
+        phone: debt.mijoz.PhoneClient?.[0]?.phoneNumber ?? '',
+        payDate: this.formatYMD(r.tolov.date),
         remaining,
       };
     });
