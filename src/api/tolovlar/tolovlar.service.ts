@@ -475,8 +475,7 @@ export class TolovlarService {
   //   };
   // }
 
-  async getTotalNasiyaFromSchedules(sellerId?: string) {
-    // 1) PENDING enum DB’da yo‘q bo‘lsa ham ishlashi uchun fallback
+  async  getTotalNasiyaFromSchedules(sellerId?: string) {
     const statuses = (['UNPAID', 'PENDING'] as unknown) as any;
   
     const items = await this.prisma.tolovOy.findMany({
@@ -492,7 +491,7 @@ export class TolovlarService {
         partialAmount: true,      
         tolov: {
           select: {
-            amount: true,         // aynan shu oy uchun to‘lov (oylik)
+            amount: true,         
             debt: {
               select: {
                 mijoz: {
@@ -513,12 +512,11 @@ export class TolovlarService {
       return { list: [], grandTotal: 0 };
     }
   
-    // 2) Har mijoz bo‘yicha yig‘ish
     const results: Record<string, { name: string; phone: string; total: number }> = {};
   
     for (const it of items) {
-      const monthly = it.tolov.amount;                          // oylik
-      const remaining = Math.max(monthly - (it.partialAmount ?? 0), 0); // qolgan
+      const monthly = it.tolov.amount;                       
+      const remaining = Math.max(monthly - (it.partialAmount ?? 0), 0); 
   
       const mijozId = it.tolov.debt.mijoz.id;
       const name = it.tolov.debt.mijoz.name;
@@ -530,7 +528,6 @@ export class TolovlarService {
       results[mijozId].total += remaining;
     }
   
-    // 3) Massivga o‘tkazish + tartiblash + grand total
     const list = Object.entries(results).map(([mijozId, data]) => ({
       mijozId,
       name: data.name,

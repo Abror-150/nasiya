@@ -5,5 +5,6 @@ import { TolovlarController } from './tolovlar.controller';
 @Module({
   controllers: [TolovlarController],
   providers: [TolovlarService],
+  exports: [TolovlarService],
 })
 export class TolovlarModule {}

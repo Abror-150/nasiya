@@ -3,10 +3,14 @@ import { CreateMijozDto } from './dto/create-mijoz.dto';
 import { UpdateMijozDto } from './dto/update-mijoz.dto';
 import { PrismaService } from 'src/infrastructure/lib/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { TolovlarService } from '../tolovlar/tolovlar.service';
 
 @Injectable()
 export class MijozService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tolovlar: TolovlarService,
+  ) {}
 
   async create(data: CreateMijozDto, sellerId: string) {
     const { name, address, note, images, phones } = data;
@@ -66,23 +70,33 @@ export class MijozService {
             email: true,
           },
         },
+        PhoneClient: true,
       },
       skip,
       take: limit,
       orderBy: { name: 'asc' },
     });
-    console.log(data);
 
-    const total = await this.prisma.mijoz.count({
+    const totals = await this.tolovlar.getTotalNasiyaFromSchedules();
+
+    const totalMap = new Map(totals.list.map((x) => [x.mijozId, x.total]));
+
+    const listWithTotal = data.map((m) => ({
+      ...m,
+      total: totalMap.get(m.id) ?? 0,
+    }));
+
+    const totalCount = await this.prisma.mijoz.count({
       where: whereCondition,
     });
 
     return {
-      total,
+      total: totalCount,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
-      data,
+      totalPages: Math.ceil(totalCount / limit),
+      grandTotal: totals.grandTotal,
+      data: listWithTotal,
     };
   }
 
