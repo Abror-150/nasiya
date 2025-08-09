@@ -146,7 +146,7 @@ export class DebtService {
       where: {
         status: { in: ['UNPAID', 'PENDING'] as any },
         tolov: {
-          date: { gte: from, lt: to },        
+          date: { gte: from, lt: to },
           debt: { mijoz: { sellerId } },
         },
       },
@@ -154,11 +154,11 @@ export class DebtService {
         partialAmount: true,
         tolov: {
           select: {
-            amount: true, 
+            amount: true,
             debt: {
               select: {
-                amount: true,   
-                muddat: true,  
+                amount: true,
+                muddat: true,
               },
             },
           },
@@ -168,8 +168,10 @@ export class DebtService {
 
     const total = rows.reduce((acc, r) => {
       const debt = r.tolov.debt;
-      const muddatOy = parseInt(String(debt.muddat ?? '').replace(/\D/g, ''), 10) || 0;
-      const monthlyByDebt = muddatOy > 0 ? Math.floor((debt.amount ?? 0) / muddatOy) : 0;
+      const muddatOy =
+        parseInt(String(debt.muddat ?? '').replace(/\D/g, ''), 10) || 0;
+      const monthlyByDebt =
+        muddatOy > 0 ? Math.floor((debt.amount ?? 0) / muddatOy) : 0;
       const monthly = r.tolov.amount ?? monthlyByDebt;
 
       const paidPart = r.partialAmount ?? 0;
@@ -239,5 +241,35 @@ export class DebtService {
         remaining,
       };
     });
+  }
+  async getMonthlyDaysWithPayments(
+    sellerId: string,
+    year: number,
+    month: number,
+  ) {
+    const from = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+    const to = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+
+    const rows = await this.prisma.tolovOy.findMany({
+      where: {
+        status: { in: ['UNPAID', 'PENDING'] as any },
+        tolov: {
+          date: { gte: from, lt: to },
+          debt: { mijoz: { sellerId } },
+        },
+      },
+      select: {
+        tolov: { select: { date: true } },
+      },
+    });
+
+    const daySet = new Set<number>();
+    for (const r of rows) {
+      const d = new Date(r.tolov.date).getUTCDate();
+      daySet.add(d);
+    }
+
+    const days = Array.from(daySet).sort((a, b) => a - b);
+    return { days };
   }
 }

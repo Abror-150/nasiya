@@ -61,6 +61,24 @@ export class DebtController {
   }
   @UseGuards(JwtAuthGuard, RbucGuard)
   @Roles('seller', 'admin')
+  @Get('monthly-days')
+  async getMonthlyDays(
+    @Query('year') yearStr: string,
+    @Query('month') monthStr: string,
+    @Req() req,
+  ) {
+    const sellerId = req.user?.userId;
+    if (!sellerId) throw new BadRequestException('sellerId topilmadi');
+
+    const year = Number(yearStr);
+    const month = Number(monthStr);
+    if (!year || !month)
+      throw new BadRequestException('year va month majburiy');
+
+    return this.debtService.getMonthlyDaysWithPayments(sellerId, year, month);
+  }
+  @UseGuards(JwtAuthGuard, RbucGuard)
+  @Roles('seller', 'admin')
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.debtService.findOne(id);
