@@ -20,8 +20,8 @@ import { ApiBody } from '@nestjs/swagger';
 @Controller('seller')
 export class SellerController {
   constructor(private readonly sellerService: SellerService) {}
-  @UseGuards(JwtAuthGuard, RbucGuard)
-  @Roles('admin')
+  // @UseGuards(JwtAuthGuard, RbucGuard)
+  // @Roles('admin')
   @Post()
   create(@Body() createSellerDto: CreateSellerDto) {
     return this.sellerService.Register(createSellerDto);

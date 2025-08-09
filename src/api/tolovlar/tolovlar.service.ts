@@ -476,32 +476,30 @@ export class TolovlarService {
   // }
 
   async getTotalNasiyaFromSchedules(sellerId?: string) {
+    // 1) PENDING enum DB’da yo‘q bo‘lsa ham ishlashi uchun fallback
+    const statuses = (['UNPAID', 'PENDING'] as unknown) as any;
+  
     const items = await this.prisma.tolovOy.findMany({
       where: {
-        status: 'UNPAID',
+        status: { in: statuses },
         tolov: {
           debt: {
-            mijoz: sellerId ? { sellerId } : undefined,
+            mijoz: sellerId ? { sellerId } : {},
           },
         },
       },
       select: {
-        partialAmount: true,
+        partialAmount: true,      
         tolov: {
           select: {
+            amount: true,         // aynan shu oy uchun to‘lov (oylik)
             debt: {
               select: {
-                amount: true,
-                muddat: true,
                 mijoz: {
                   select: {
                     id: true,
                     name: true,
-                    PhoneClient: {
-                      select: {
-                        phoneNumber: true,
-                      },
-                    },
+                    PhoneClient: { select: { phoneNumber: true } },
                   },
                 },
               },
@@ -510,34 +508,42 @@ export class TolovlarService {
         },
       },
     });
-
-    const results: Record<
-      string,
-      { name: string; phone: string; total: number }
-    > = {};
-
+  
+    if (!items.length) {
+      return { list: [], grandTotal: 0 };
+    }
+  
+    // 2) Har mijoz bo‘yicha yig‘ish
+    const results: Record<string, { name: string; phone: string; total: number }> = {};
+  
     for (const it of items) {
-      const debt = it.tolov.debt;
-      const muddatOy = parseInt(debt.muddat.replace(/\D/g, ''), 10) || 0;
-      const monthly = muddatOy > 0 ? Math.floor(debt.amount / muddatOy) : 0;
-      const remaining = Math.max(monthly - (it.partialAmount ?? 0), 0);
-
-      const mijozId = debt.mijoz.id;
-      const name = debt.mijoz.name;
-      const phone = debt.mijoz.PhoneClient?.[0]?.phoneNumber || '';
-
+      const monthly = it.tolov.amount;                          // oylik
+      const remaining = Math.max(monthly - (it.partialAmount ?? 0), 0); // qolgan
+  
+      const mijozId = it.tolov.debt.mijoz.id;
+      const name = it.tolov.debt.mijoz.name;
+      const phone = it.tolov.debt.mijoz.PhoneClient?.[0]?.phoneNumber || '';
+  
       if (!results[mijozId]) {
         results[mijozId] = { name, phone, total: 0 };
       }
-
       results[mijozId].total += remaining;
     }
-
-    return Object.entries(results).map(([mijozId, data]) => ({
+  
+    // 3) Massivga o‘tkazish + tartiblash + grand total
+    const list = Object.entries(results).map(([mijozId, data]) => ({
       mijozId,
       name: data.name,
       phone: data.phone,
       total: data.total,
     }));
+  
+    list.sort((a, b) => b.total - a.total);
+  
+    const grandTotal = list.reduce((s, x) => s + x.total, 0);
+  
+    return { list, grandTotal };
   }
+  
+  
 }

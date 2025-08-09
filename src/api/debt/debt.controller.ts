@@ -29,7 +29,7 @@ export class DebtController {
     return this.debtService.findAll();
   }
   @UseGuards(JwtAuthGuard)
-  @Get('expected-payments')
+  @Get('byDate')
   async getExpectedPayments(@Req() req, @Query('date') date: string) {
     const sellerId = req.user.userId;
     return this.debtService.getExpectedPaymentsByDate(sellerId, date);

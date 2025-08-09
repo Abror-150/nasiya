@@ -123,7 +123,7 @@ model TolovOy {
   id            String     @id @default(uuid())
   month         Int
   tolovId       String
-  status        statusType
+  status        statusType @default(PENDING)
   partialAmount Int?
   tolov         Tolovlar   @relation(fields: [tolovId], references: [id], onDelete: Cascade)
 }
@@ -137,6 +137,7 @@ enum methodType {
 enum statusType {
   PAID
   UNPAID
+  PENDING
 }
 
 model Namuna {

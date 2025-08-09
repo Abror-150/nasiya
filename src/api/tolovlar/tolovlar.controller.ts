@@ -59,7 +59,6 @@ export class TolovlarController {
   @Get('stats')
   async getTotalNasiya(@Req() req) {
     const sellerId = req.user.userId;
-    console.log(sellerId, 'asdg');
 
     return this.tolovlarService.getTotalNasiyaFromSchedules(sellerId);
   }

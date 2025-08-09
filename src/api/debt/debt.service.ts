@@ -10,7 +10,7 @@ export class DebtService {
   async create(data: CreateDebtDto) {
     const { name, amount, date, muddat, note, images, phones, mijozId } = data;
 
-    return await this.prisma.debt.create({
+    const newDebt = await this.prisma.debt.create({
       data: {
         name,
         amount,
@@ -18,15 +18,38 @@ export class DebtService {
         muddat,
         note,
         mijozId,
-        PhoneDebt: {
-          create: phones?.map((p) => ({ phoneNumber: p })) || [],
-        },
-        ImagesDebt: {
-          create: images?.map((img) => ({ url: img })) || [],
-        },
+        PhoneDebt: { create: phones?.map((p) => ({ phoneNumber: p })) || [] },
+        ImagesDebt: { create: images?.map((img) => ({ url: img })) || [] },
       },
       include: { PhoneDebt: true, ImagesDebt: true },
     });
+
+    const muddatOy = parseInt(String(muddat).replace(/\D/g, ''), 10) || 0;
+    const monthlyAmount = muddatOy > 0 ? Math.floor(amount / muddatOy) : amount;
+    const startDate = new Date(date);
+
+    for (let i = 1; i <= muddatOy; i++) {
+      const payDate = new Date(startDate);
+      payDate.setMonth(payDate.getMonth() + (i - 1));
+
+      await this.prisma.tolovOy.create({
+        data: {
+          month: i,
+          status: 'PENDING',
+          partialAmount: 0,
+          tolov: {
+            create: {
+              amount: monthlyAmount,
+              date: payDate,
+              method: 'MULTI_MONTH',
+              debtId: newDebt.id,
+            },
+          },
+        },
+      });
+    }
+
+    return newDebt;
   }
 
   async findAll() {
@@ -104,37 +127,41 @@ export class DebtService {
     await this.prisma.debt.delete({ where: { id } });
     return { message: 'Qarz o‘chirildi' };
   }
+  private formatYMD(d: Date) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
   async getExpectedPaymentsByDate(sellerId: string, date: string) {
     const targetDate = new Date(date);
-    const targetISO = targetDate.toISOString().split('T')[0];
+    const targetMonth = targetDate.getMonth();
+    const targetYear = targetDate.getFullYear();
 
-    const allUnpaid = await this.prisma.tolovOy.findMany({
+    const payments = await this.prisma.tolovOy.findMany({
       where: {
-        status: 'UNPAID',
+        status: { in: ['UNPAID', 'PENDING'] as any },
         tolov: {
           debt: {
-            mijoz: {
-              sellerId,
-            },
+            mijoz: { sellerId },
           },
         },
       },
-      include: {
+      select: {
+        partialAmount: true,
         tolov: {
           select: {
             amount: true,
             date: true,
             debt: {
               select: {
-                date: true,
+                amount: true,
+                muddat: true,
                 mijoz: {
                   select: {
                     name: true,
-                    PhoneClient: {
-                      select: {
-                        phoneNumber: true,
-                      },
-                    },
+                    PhoneClient: { select: { phoneNumber: true } },
                   },
                 },
               },
@@ -144,24 +171,27 @@ export class DebtService {
       },
     });
 
-    const filtered = allUnpaid.filter((item) => {
-      const debtStartDate = new Date(item.tolov.debt.date);
-
-      const expectedDate = new Date(
-        debtStartDate.getFullYear(),
-        debtStartDate.getMonth() + item.month,
-        debtStartDate.getDate(),
+    const filtered = payments.filter((p) => {
+      const payDate = new Date(p.tolov.date);
+      return (
+        payDate.getMonth() === targetMonth &&
+        payDate.getFullYear() === targetYear
       );
-
-      const expectedISO = expectedDate.toISOString().split('T')[0];
-      return expectedISO === targetISO;
     });
 
-    return filtered.map((item) => ({
-      name: item.tolov.debt.mijoz.name,
-      phone: item.tolov.debt.mijoz.PhoneClient,
-      expectedDate: targetISO,
-      remaining: item.partialAmount ?? item.tolov.amount,
-    }));
+    return filtered.map((p) => {
+      const debt = p.tolov.debt;
+      const muddatOy =
+        parseInt(String(debt.muddat).replace(/\D/g, ''), 10) || 0;
+      const monthly = muddatOy > 0 ? Math.floor(debt.amount / muddatOy) : 0;
+      const remaining = Math.max(monthly - (p.partialAmount ?? 0), 0);
+
+      return {
+        name: debt.mijoz.name,
+        phone: debt.mijoz.PhoneClient?.[0]?.phoneNumber || '',
+        payDate: this.formatYMD(p.tolov.date),
+        remaining,
+      };
+    });
   }
 }
