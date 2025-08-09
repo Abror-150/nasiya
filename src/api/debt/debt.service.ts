@@ -138,6 +138,48 @@ export class DebtService {
     return `${y}-${m}-${day}`;
   }
 
+  async getMonthlyExpectedTotal(sellerId: string, year: number, month: number) {
+    const from = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+    const to = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+
+    const rows = await this.prisma.tolovOy.findMany({
+      where: {
+        status: { in: ['UNPAID', 'PENDING'] as any },
+        tolov: {
+          date: { gte: from, lt: to },        
+          debt: { mijoz: { sellerId } },
+        },
+      },
+      select: {
+        partialAmount: true,
+        tolov: {
+          select: {
+            amount: true, 
+            debt: {
+              select: {
+                amount: true,   
+                muddat: true,  
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const total = rows.reduce((acc, r) => {
+      const debt = r.tolov.debt;
+      const muddatOy = parseInt(String(debt.muddat ?? '').replace(/\D/g, ''), 10) || 0;
+      const monthlyByDebt = muddatOy > 0 ? Math.floor((debt.amount ?? 0) / muddatOy) : 0;
+      const monthly = r.tolov.amount ?? monthlyByDebt;
+
+      const paidPart = r.partialAmount ?? 0;
+      const remaining = Math.max(monthly - paidPart, 0);
+      return acc + remaining;
+    }, 0);
+
+    return { year, month, total };
+  }
+
   async getExpectedPaymentsByDate(sellerId: string, dateStr: string) {
     if (!sellerId) throw new BadRequestException('sellerId topilmadi');
     if (!dateStr) throw new BadRequestException('date kerak (YYYY-MM-DD)');
