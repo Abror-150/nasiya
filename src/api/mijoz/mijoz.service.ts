@@ -122,6 +122,110 @@ export class MijozService {
     return mijoz;
   }
 
+  async getMijozDebtsCards(mijozId: string) {
+    const debts = await this.prisma.debt.findMany({
+      where: { mijozId },
+    });
+    if (debts.length === 0) return { total: 0, debts: [] };
+  
+    const debtIds = debts.map((d) => d.id);
+  
+    const planned = await this.prisma.tolovlar.groupBy({
+      by: ['debtId'],
+      where: { debtId: { in: debtIds } },
+      _sum: { amount: true },
+    });
+    const plannedMap = new Map(planned.map((p) => [p.debtId, Number(p._sum.amount ?? 0)]));
+  
+    const schedule = await this.prisma.tolovOy.findMany({
+      where: {
+        status: { in: ['UNPAID', 'PENDING'] as any },
+        tolov: { debtId: { in: debtIds } },
+      },
+      select: {
+        partialAmount: true,
+        tolov: { select: { debtId: true, amount: true, date: true } },
+      },
+      orderBy: { tolov: { date: 'asc' } },
+    });
+  
+    const cutoff = new Date();
+    cutoff.setHours(23, 59, 59, 999);
+  
+    type Agg = {
+      remaining: number;
+      nextDueDate?: Date | null;
+      nextAmount: number;
+      earliestOverdue?: Date | null;
+      earliestOverdueAmount: number;
+    };
+    const map = new Map<string, Agg>();
+  
+    for (const r of schedule) {
+      const id = r.tolov.debtId;
+      const monthly = Number(r.tolov.amount || 0);
+      const paidPart = Number(r.partialAmount || 0);
+      const remainForMonth = Math.max(monthly - paidPart, 0);
+  
+      if (!map.has(id)) {
+        map.set(id, {
+          remaining: 0,
+          nextDueDate: undefined,
+          nextAmount: 0,
+          earliestOverdue: undefined,
+          earliestOverdueAmount: 0,
+        });
+      }
+      const cur = map.get(id)!;
+  
+      cur.remaining += remainForMonth;
+  
+      if (r.tolov.date > cutoff && (!cur.nextDueDate || r.tolov.date < cur.nextDueDate)) {
+        cur.nextDueDate = r.tolov.date;
+        cur.nextAmount = remainForMonth;
+      }
+  
+      if (r.tolov.date <= cutoff && (!cur.earliestOverdue || r.tolov.date < cur.earliestOverdue)) {
+        cur.earliestOverdue = r.tolov.date;
+        cur.earliestOverdueAmount = remainForMonth;
+      }
+    }
+  
+    const cards = debts.map((d) => {
+      const agg = map.get(d.id);
+  
+      // Defaultlar
+      let nextDate = agg?.nextDueDate ?? null;
+      let nextAmount = agg?.nextAmount ?? 0;
+  
+      if (!nextDate && agg?.earliestOverdue) {
+        nextDate = agg.earliestOverdue;
+        nextAmount = agg.earliestOverdueAmount;
+      }
+  
+      const plannedTotal = plannedMap.get(d.id) ?? 0;
+      const remaining = agg?.remaining ?? 0;
+      const progress = plannedTotal > 0 ? (plannedTotal - remaining) / plannedTotal : 0;
+  
+      return {
+        id: d.id,
+        remaining,
+        nextAmount,
+        nextDueDate: nextDate,
+        progress: Math.max(0, Math.min(1, progress)),
+      };
+    });
+  
+    const active = cards.filter((c) => (c.remaining ?? 0) > 0);
+  
+    const total = active.reduce((s, x) => s + (x.remaining || 0), 0);
+  
+    active.sort((a, b) => (b.remaining ?? 0) - (a.remaining ?? 0));
+  
+    return { total, debts: active };
+  }
+  
+
   async update(id: string, dto: UpdateMijozDto) {
     const mijoz = await this.findOne(id);
 

@@ -47,6 +47,10 @@ export class MijozController {
   ) {
     return this.mijozService.findAll({ page, limit, search });
   }
+  @Get(':id/debts')
+  getMijozDebts(@Param('id') mijozId: string) {
+    return this.mijozService.getMijozDebtsCards(mijozId);
+  }
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.mijozService.findOne(id);
