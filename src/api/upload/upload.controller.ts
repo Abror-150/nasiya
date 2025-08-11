@@ -43,6 +43,6 @@ export class UploadController {
       return { message: 'Fayl yuklanmadi' };
     }
 
-    return { image: `http://3.89.123.52/images/${file.filename}` };
+    return { image: `http://51.20.104.219/images/${file.filename}` };
   }
 }
