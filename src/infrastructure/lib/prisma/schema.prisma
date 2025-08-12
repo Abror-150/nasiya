@@ -88,15 +88,7 @@ model Debt {
   mijozId    String
   mijoz      Mijoz        @relation(fields: [mijozId], references: [id])
   ImagesDebt ImagesDebt[]
-  PhoneDebt  PhoneDebt[]
   Tolovlar   Tolovlar[]
-}
-
-model PhoneDebt {
-  id          String @id @default(uuid())
-  phoneNumber String
-  debtId      String
-  debt        Debt   @relation(fields: [debtId], references: [id], onDelete: Cascade)
 }
 
 model ImagesDebt {

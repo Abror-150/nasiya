@@ -28,10 +28,5 @@ export class CreateDebtDto {
   @ApiProperty({ type: [String], required: false })
   @IsOptional()
   @IsArray()
-  phones: string[];
-
-  @ApiProperty({ type: [String], required: false })
-  @IsOptional()
-  @IsArray()
   images: string[];
 }

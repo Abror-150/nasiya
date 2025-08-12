@@ -12,7 +12,7 @@ export class DebtService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateDebtDto) {
-    const { name, amount, date, muddat, note, images, phones, mijozId } = data;
+    const { name, amount, date, muddat, note, images, mijozId } = data;
 
     const newDebt = await this.prisma.debt.create({
       data: {
@@ -22,10 +22,9 @@ export class DebtService {
         muddat,
         note,
         mijozId,
-        PhoneDebt: { create: phones?.map((p) => ({ phoneNumber: p })) || [] },
         ImagesDebt: { create: images?.map((img) => ({ url: img })) || [] },
       },
-      include: { PhoneDebt: true, ImagesDebt: true },
+      include: { ImagesDebt: true },
     });
 
     const muddatOy = parseInt(String(muddat).replace(/\D/g, ''), 10) || 0;
@@ -112,17 +111,6 @@ export class DebtService {
         await tx.imagesDebt.createMany({
           data: data.images.map((img) => ({
             url: img,
-            debtId: id,
-          })),
-        });
-      }
-
-      await tx.phoneDebt.deleteMany({ where: { debtId: id } });
-
-      if (data.phones?.length) {
-        await tx.phoneDebt.createMany({
-          data: data.phones.map((p) => ({
-            phoneNumber: p,
             debtId: id,
           })),
         });
