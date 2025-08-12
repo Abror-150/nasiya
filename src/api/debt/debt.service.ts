@@ -73,7 +73,16 @@ export class DebtService {
   async findOne(id: string) {
     const debt = await this.prisma.debt.findFirst({
       where: { id },
-      include: { mijoz: true, Tolovlar: true, ImagesDebt: true },
+      include: {
+        mijoz: true,
+        Tolovlar: {
+          include: {
+            TolovOy: true,
+          },
+          orderBy: { date: 'asc' },
+        },
+        ImagesDebt: true,
+      },
     });
 
     if (!debt) throw new NotFoundException('Qarz topilmadi');
