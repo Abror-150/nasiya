@@ -43,7 +43,7 @@ model Mijoz {
   PhoneClient  PhoneClient[]
   Message      Message[]
   Debt         Debt[]
-  seller       Seller         @relation(fields: [sellerId], references: [id])
+  seller       Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 }
 
 model PhoneClient {
@@ -86,7 +86,7 @@ model Debt {
   muddat     String
   note       String
   mijozId    String
-  mijoz      Mijoz        @relation(fields: [mijozId], references: [id])
+  mijoz      Mijoz        @relation(fields: [mijozId], references: [id], onDelete: Cascade)
   ImagesDebt ImagesDebt[]
   Tolovlar   Tolovlar[]
 }
