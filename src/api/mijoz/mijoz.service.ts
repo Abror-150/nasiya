@@ -44,20 +44,26 @@ export class MijozService {
     return mijoz;
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string }) {
+  async findAll(
+    query: { page?: number; limit?: number; search?: string },
+    sellerId?: string,
+  ) {
     const page = query.page || 1;
     const limit: number = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
     const search = query.search?.trim();
 
-    const whereCondition: Prisma.MijozWhereInput = search
-      ? {
-          name: {
-            contains: search,
-            mode: Prisma.QueryMode.insensitive,
-          },
-        }
-      : {};
+    const whereCondition: Prisma.MijozWhereInput = {
+      sellerId,
+      ...(search
+        ? {
+            name: {
+              contains: search,
+              mode: Prisma.QueryMode.insensitive,
+            },
+          }
+        : {}),
+    };
 
     const data = await this.prisma.mijoz.findMany({
       where: whereCondition,
