@@ -4,7 +4,7 @@ import { UpdateMijozDto } from './dto/update-mijoz.dto';
 import { PrismaService } from 'src/infrastructure/lib/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { TolovlarService } from '../tolovlar/tolovlar.service';
-
+import { addMonths } from 'date-fns';
 @Injectable()
 export class MijozService {
   constructor(
@@ -205,6 +205,11 @@ export class MijozService {
       let nextDate = agg?.nextDueDate ?? null;
       let nextAmount = agg?.nextAmount ?? 0;
 
+      if (!nextDate) {
+        nextDate = addMonths(d.date, 1);
+        nextAmount = plannedMap.get(d.id) ?? 0;
+      }
+
       if (!nextDate && agg?.earliestOverdue) {
         nextDate = agg.earliestOverdue;
         nextAmount = agg.earliestOverdueAmount;
@@ -224,7 +229,7 @@ export class MijozService {
       };
     });
 
-    const active = cards.filter((c) => (c.remaining ?? 0) > 0);
+    const active = cards.filter((c) => c.remaining > 0);
 
     const total = active.reduce((s, x) => s + (x.remaining || 0), 0);
 
