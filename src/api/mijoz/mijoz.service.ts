@@ -129,7 +129,6 @@ export class MijozService {
     if (debts.length === 0) return { total: 0, debts: [] };
 
     const debtIds = debts.map((d) => d.id);
-
     const planned = await this.prisma.tolovlar.groupBy({
       by: ['debtId'],
       where: { debtId: { in: debtIds } },
