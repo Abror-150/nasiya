@@ -28,6 +28,4 @@ export class CreateMultiMonthDto {
   @IsNumber({}, { each: true })
   @Min(1, { each: true })
   months: number[];
-  @ApiProperty()
-  duration?: string;
 }

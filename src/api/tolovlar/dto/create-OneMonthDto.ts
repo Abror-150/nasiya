@@ -13,6 +13,4 @@ export class CreateOneMonthDto {
   @ApiProperty({ example: '2025-09-01' })
   @IsDateString()
   date: string;
-  @ApiProperty()
-  duration: string;
 }

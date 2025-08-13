@@ -18,49 +18,42 @@ export class TolovlarService {
     const debt = await this.getDebt(dto.debtId);
     const totalMonths = this.parseMuddat(debt.muddat);
     const monthlyAmount = Math.floor(debt.amount / totalMonths);
-
+  
     const unpaidMonths = await this.getUnpaidMonths(dto.debtId);
     const month = unpaidMonths[0];
     if (!month) throw new BadRequestException('Barcha oylar to‘langan');
-
+  
     const existing = await this.prisma.tolovOy.findFirst({
       where: {
         tolov: { debtId: dto.debtId },
         month,
       },
     });
-
-    const paidSoFar =
-      existing?.status === statusType.UNPAID
-        ? monthlyAmount - (existing?.partialAmount ?? monthlyAmount)
-        : 0;
-
+  
+    const paidSoFar = existing?.partialAmount ? monthlyAmount - existing.partialAmount : 0;
     const remaining = monthlyAmount - paidSoFar;
-
+  
     const payment = await this.savePayment(dto, remaining);
-
-    if (existing) {
-      await this.prisma.tolovOy.update({
-        where: { id: existing.id },
-        data: {
-          partialAmount: 0,
-          status: statusType.PAID,
-          tolovId: payment.id,
-        },
-      });
-    } else {
-      await this.prisma.tolovOy.create({
-        data: {
-          tolovId: payment.id,
-          month,
-          status: statusType.PAID,
-          partialAmount: 0,
-        },
-      });
-    }
-
+  
+    const newPartial = 0;
+    await this.prisma.tolovOy.upsert({
+      where: { id: existing?.id ?? '' },
+      update: {
+        partialAmount: newPartial,
+        status: statusType.PAID,
+        tolovId: payment.id,
+      },
+      create: {
+        tolovId: payment.id,
+        month,
+        status: statusType.PAID,
+        partialAmount: newPartial,
+      },
+    });
+  
     return payment;
   }
+  
 
   private parseMuddat(muddat: string): number {
     const match = muddat.match(/(\d+)\s*oy/i);
@@ -80,8 +73,16 @@ export class TolovlarService {
 
     let amountLeft = dto.amount;
     const unpaidMonths = await this.getUnpaidMonths(dto.debtId);
+
     if (unpaidMonths.length === 0) {
       throw new BadRequestException('Barcha oylar to‘langan');
+    }
+
+    const remainingDebt = debt.amount - debt.paidAmount;
+    if (dto.amount > remainingDebt) {
+      throw new BadRequestException(
+        `Sizning umumiy qarzingiz ${remainingDebt} so‘m, shundan ortig‘ini to‘lay olmaysiz`,
+      );
     }
 
     const payment = await this.savePayment(dto, dto.amount);
@@ -90,67 +91,43 @@ export class TolovlarService {
       if (amountLeft <= 0) break;
 
       const existing = await this.prisma.tolovOy.findFirst({
-        where: {
-          tolov: { debtId: dto.debtId },
-          month,
-        },
+        where: { tolov: { debtId: dto.debtId }, month },
       });
 
-      const paidSoFar = existing?.partialAmount ?? 0;
+      const paidSoFar = existing
+        ? monthlyAmount - (existing.partialAmount ?? monthlyAmount)
+        : 0;
       const remaining = monthlyAmount - paidSoFar;
 
       if (amountLeft >= remaining) {
-        if (existing) {
-          await this.prisma.tolovOy.update({
-            where: { id: existing.id },
-            data: {
-              status: statusType.PAID,
-              partialAmount: 0,
-              tolovId: payment.id,
-            },
-          });
-        } else {
-          await this.prisma.tolovOy.create({
-            data: {
-              tolovId: payment.id,
-              month,
-              status: statusType.PAID,
-              partialAmount: 0,
-            },
-          });
-        }
+        await this.upsertTolovOy(existing?.id, {
+          tolovId: payment.id,
+          month,
+          status: statusType.PAID,
+          partialAmount: 0,
+        });
         amountLeft -= remaining;
       } else {
-        const newPaid = paidSoFar + amountLeft;
-        const stillRemaining = monthlyAmount - newPaid;
-        const status =
-          stillRemaining <= 0 ? statusType.PAID : statusType.UNPAID;
-
-        if (existing) {
-          await this.prisma.tolovOy.update({
-            where: { id: existing.id },
-            data: {
-              partialAmount: stillRemaining <= 0 ? 0 : stillRemaining,
-              status,
-              tolovId: payment.id,
-            },
-          });
-        } else {
-          await this.prisma.tolovOy.create({
-            data: {
-              tolovId: payment.id,
-              month,
-              status,
-              partialAmount: stillRemaining <= 0 ? 0 : stillRemaining,
-            },
-          });
-        }
-
+        const stillRemaining = remaining - amountLeft;
+        await this.upsertTolovOy(existing?.id, {
+          tolovId: payment.id,
+          month,
+          status: stillRemaining <= 0 ? statusType.PAID : statusType.UNPAID,
+          partialAmount: stillRemaining <= 0 ? 0 : stillRemaining,
+        });
         amountLeft = 0;
       }
     }
 
     return payment;
+  }
+
+  private async upsertTolovOy(id: string | undefined, data: any) {
+    if (id) {
+      await this.prisma.tolovOy.update({ where: { id }, data });
+    } else {
+      await this.prisma.tolovOy.create({ data });
+    }
   }
 
   async createMultiMonth(dto: CreateMultiMonthDto) {
@@ -169,33 +146,24 @@ export class TolovlarService {
     for (let i = 1; i < sortedMonths.length; i++) {
       if (sortedMonths[i] !== sortedMonths[i - 1] + 1) {
         throw new BadRequestException(
-          'Oylar ketma-ket tanlanishi kerak (masalan: 4,5,6)',
+          'Oylar ketma-ket bo‘lishi kerak (masalan: 4,5,6)',
         );
       }
     }
-    const invalidMonth = sortedMonths.find((m) => m > totalMonths);
-    if (invalidMonth) {
-      throw new BadRequestException(
-        `Siz faqat ${totalMonths} oyga qarz olgansiz. ${invalidMonth}-oy mavjud emas.`,
-      );
-    }
 
     const unpaidMonths = await this.getUnpaidMonths(dto.debtId);
-    const expectedFirstMonth = unpaidMonths[0];
-    if (sortedMonths[0] !== expectedFirstMonth) {
+    if (sortedMonths[0] !== unpaidMonths[0]) {
       throw new BadRequestException(
-        `To‘lov ${expectedFirstMonth}-oydan boshlanishi kerak.`,
+        `To‘lov ${unpaidMonths[0]}-oydan boshlanishi kerak`,
       );
     }
 
     let totalAmount = 0;
     const updates: {
-      existing?: string;
-      data: {
-        month: number;
-        partialAmount: number;
-        status: statusType;
-      };
+      id?: string;
+      month: number;
+      partialAmount: number;
+      status: statusType;
     }[] = [];
 
     for (const month of sortedMonths) {
@@ -206,23 +174,18 @@ export class TolovlarService {
         },
       });
 
-      const paidSoFar = existing
-        ? existing.status === statusType.UNPAID
-          ? monthlyAmount - (existing.partialAmount ?? monthlyAmount)
-          : 0
+      const alreadyPaid = existing?.partialAmount
+        ? monthlyAmount - existing.partialAmount
         : 0;
-
-      const remaining = monthlyAmount - paidSoFar;
+      const remaining = monthlyAmount - alreadyPaid;
 
       totalAmount += remaining;
 
       updates.push({
-        existing: existing?.id,
-        data: {
-          month,
-          partialAmount: 0,
-          status: statusType.PAID,
-        },
+        id: existing?.id,
+        month,
+        partialAmount: 0,
+        status: statusType.PAID,
       });
     }
 
@@ -236,18 +199,21 @@ export class TolovlarService {
     const payment = await this.savePayment(dto, totalAmount);
 
     for (const item of updates) {
-      if (item.existing) {
+      if (item.id) {
         await this.prisma.tolovOy.update({
-          where: { id: item.existing },
+          where: { id: item.id },
           data: {
-            ...item.data,
+            partialAmount: item.partialAmount,
+            status: item.status,
             tolovId: payment.id,
           },
         });
       } else {
         await this.prisma.tolovOy.create({
           data: {
-            ...item.data,
+            month: item.month,
+            partialAmount: item.partialAmount,
+            status: item.status,
             tolovId: payment.id,
           },
         });
@@ -475,9 +441,9 @@ export class TolovlarService {
   //   };
   // }
 
-  async  getTotalNasiyaFromSchedules(sellerId?: string) {
-    const statuses = (['UNPAID', 'PENDING'] as unknown) as any;
-  
+  async getTotalNasiyaFromSchedules(sellerId?: string) {
+    const statuses = ['UNPAID', 'PENDING'] as unknown as any;
+
     const items = await this.prisma.tolovOy.findMany({
       where: {
         status: { in: statuses },
@@ -488,10 +454,10 @@ export class TolovlarService {
         },
       },
       select: {
-        partialAmount: true,      
+        partialAmount: true,
         tolov: {
           select: {
-            amount: true,         
+            amount: true,
             debt: {
               select: {
                 mijoz: {
@@ -507,40 +473,41 @@ export class TolovlarService {
         },
       },
     });
-  
+
     if (!items.length) {
       return { list: [], grandTotal: 0 };
     }
-  
-    const results: Record<string, { name: string; phone: string; total: number }> = {};
-  
+
+    const results: Record<
+      string,
+      { name: string; phone: string; total: number }
+    > = {};
+
     for (const it of items) {
-      const monthly = it.tolov.amount;                       
-      const remaining = Math.max(monthly - (it.partialAmount ?? 0), 0); 
-  
+      const monthly = it.tolov.amount;
+      const remaining = Math.max(monthly - (it.partialAmount ?? 0), 0);
+
       const mijozId = it.tolov.debt.mijoz.id;
       const name = it.tolov.debt.mijoz.name;
       const phone = it.tolov.debt.mijoz.PhoneClient?.[0]?.phoneNumber || '';
-  
+
       if (!results[mijozId]) {
         results[mijozId] = { name, phone, total: 0 };
       }
       results[mijozId].total += remaining;
     }
-  
+
     const list = Object.entries(results).map(([mijozId, data]) => ({
       mijozId,
       name: data.name,
       phone: data.phone,
       total: data.total,
     }));
-  
+
     list.sort((a, b) => b.total - a.total);
-  
+
     const grandTotal = list.reduce((s, x) => s + x.total, 0);
-  
+
     return { list, grandTotal };
   }
-  
-  
 }
