@@ -33,6 +33,8 @@ export class MijozController {
   @ApiOperation({
     summary: 'Mijozlar ro‘yxatini olish (pagination va filter bilan)',
   })
+  @UseGuards(JwtAuthGuard, RbucGuard)
+  @Roles('seller', 'admin')
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   @ApiQuery({
@@ -40,12 +42,16 @@ export class MijozController {
     required: false,
     type: String,
   })
+  @Get()
   async findAll(
+    @Req() req,
+
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('search') search?: string,
   ) {
-    return this.mijozService.findAll({ page, limit, search });
+    const sellerId = req.user.userId;
+    return this.mijozService.findAll({ page, limit, search }, sellerId);
   }
   @Get(':id/debts')
   getMijozDebts(@Param('id') mijozId: string) {
