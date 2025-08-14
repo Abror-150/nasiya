@@ -17,66 +17,50 @@ export class TolovlarService {
   async createOneMonth(dto: CreateOneMonthDto) {
     const debt = await this.getDebt(dto.debtId);
     const totalMonths = this.parseMuddat(debt.muddat);
-    const monthlyAmount = Math.floor(debt.amount / totalMonths);
-  
-    const unpaidMonths = await this.getUnpaidMonths(dto.debtId);
-    const month = unpaidMonths[0];
+    const monthlyAmount = this.getMonthlyAmount(debt.amount, totalMonths);
+
+    const unpaid = await this.getUnpaidMonths(dto.debtId);
+    const month = unpaid[0];
     if (!month) throw new BadRequestException('Barcha oylar to‘langan');
-  
+
     const existing = await this.prisma.tolovOy.findFirst({
-      where: {
-        tolov: { debtId: dto.debtId },
-        month,
-      },
+      where: { tolov: { debtId: dto.debtId }, month },
+      select: { id: true, partialAmount: true },
     });
-  
-    const paidSoFar = existing?.partialAmount ? monthlyAmount - existing.partialAmount : 0;
-    const remaining = monthlyAmount - paidSoFar;
-  
+
+    const paidSoFar = Number(existing?.partialAmount ?? 0);
+    const remaining = Math.max(monthlyAmount - paidSoFar, 0);
+    if (remaining <= 0) {
+      throw new BadRequestException(`${month}-oy allaqachon to‘langan`);
+    }
+
     const payment = await this.savePayment(dto, remaining);
-  
-    const newPartial = 0;
-    await this.prisma.tolovOy.upsert({
-      where: { id: existing?.id ?? '' },
-      update: {
-        partialAmount: newPartial,
-        status: statusType.PAID,
-        tolovId: payment.id,
-      },
-      create: {
-        tolovId: payment.id,
-        month,
-        status: statusType.PAID,
-        partialAmount: newPartial,
-      },
+
+    await this.upsertTolovOyByMonth(dto.debtId, month, {
+      tolovId: payment.id,
+      status: 'PAID',
+      partialAmount: monthlyAmount,
     });
-  
+
     return payment;
   }
-  
 
   private parseMuddat(muddat: string): number {
-    const match = muddat.match(/(\d+)\s*oy/i);
-    if (!match) throw new BadRequestException('Muddat noto‘g‘ri formatda');
-    return parseInt(match[1]);
+    const m = muddat.match(/(\d+)\s*oy/i);
+    if (!m) throw new BadRequestException('Muddat noto‘g‘ri formatda');
+    return parseInt(m[1], 10);
   }
 
   async createCustom(dto: CreateCustomDto) {
     const debt = await this.getDebt(dto.debtId);
-
     if (!dto.amount || dto.amount < 1) {
       throw new BadRequestException('To‘lov summasi noto‘g‘ri');
     }
 
     const totalMonths = this.parseMuddat(debt.muddat);
-    const monthlyAmount = Math.floor(debt.amount / totalMonths);
+    const monthlyAmount = this.getMonthlyAmount(debt.amount, totalMonths);
 
     let amountLeft = dto.amount;
-    const unpaidMonths = await this.getUnpaidMonths(dto.debtId);
-
-    if (unpaidMonths.length === 0) {
-      throw new BadRequestException('Barcha oylar to‘langan');
-    }
 
     const remainingDebt = debt.amount - debt.paidAmount;
     if (dto.amount > remainingDebt) {
@@ -85,54 +69,69 @@ export class TolovlarService {
       );
     }
 
+    const unpaid = await this.getUnpaidMonths(dto.debtId);
+    if (unpaid.length === 0) {
+      throw new BadRequestException('Barcha oylar to‘langan');
+    }
+
     const payment = await this.savePayment(dto, dto.amount);
 
-    for (const month of unpaidMonths) {
+    for (const month of unpaid) {
       if (amountLeft <= 0) break;
 
       const existing = await this.prisma.tolovOy.findFirst({
         where: { tolov: { debtId: dto.debtId }, month },
+        select: { id: true, partialAmount: true, status: true },
       });
 
-      const paidSoFar = existing
-        ? monthlyAmount - (existing.partialAmount ?? monthlyAmount)
-        : 0;
-      const remaining = monthlyAmount - paidSoFar;
+      const paidSoFar = Number(existing?.partialAmount ?? 0);
+      const remain = Math.max(monthlyAmount - paidSoFar, 0);
+      if (remain <= 0) continue;
 
-      if (amountLeft >= remaining) {
-        await this.upsertTolovOy(existing?.id, {
-          tolovId: payment.id,
-          month,
-          status: statusType.PAID,
-          partialAmount: 0,
-        });
-        amountLeft -= remaining;
-      } else {
-        const stillRemaining = remaining - amountLeft;
-        await this.upsertTolovOy(existing?.id, {
-          tolovId: payment.id,
-          month,
-          status: stillRemaining <= 0 ? statusType.PAID : statusType.UNPAID,
-          partialAmount: stillRemaining <= 0 ? 0 : stillRemaining,
-        });
-        amountLeft = 0;
-      }
+      const payThis = Math.min(remain, amountLeft);
+      const newPartial = paidSoFar + payThis;
+      const newStatus: statusType =
+        newPartial >= monthlyAmount ? 'PAID' : (existing?.status ?? 'UNPAID');
+
+      await this.upsertTolovOyByMonth(dto.debtId, month, {
+        tolovId: payment.id,
+        status: newStatus,
+        partialAmount: newPartial,
+      });
+
+      amountLeft -= payThis;
     }
 
     return payment;
   }
 
-  private async upsertTolovOy(id: string | undefined, data: any) {
-    if (id) {
-      await this.prisma.tolovOy.update({ where: { id }, data });
+  private async upsertTolovOyByMonth(
+    debtId: string,
+    month: number,
+    data: { status: statusType; partialAmount: number; tolovId: string },
+  ) {
+    const existing = await this.prisma.tolovOy.findFirst({
+      where: { tolov: { debtId }, month },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await this.prisma.tolovOy.update({
+        where: { id: existing.id },
+        data,
+      });
     } else {
-      await this.prisma.tolovOy.create({ data });
+      await this.prisma.tolovOy.create({
+        data: { month, ...data },
+      });
     }
+  }
+  private getMonthlyAmount(debtAmount: number, totalMonths: number) {
+    return Math.floor(debtAmount / totalMonths);
   }
 
   async createMultiMonth(dto: CreateMultiMonthDto) {
     const debt = await this.getDebt(dto.debtId);
-
     if (!dto.months || dto.months.length === 0) {
       throw new BadRequestException(
         'Oylar ro‘yxati bo‘sh bo‘lishi mumkin emas',
@@ -140,53 +139,37 @@ export class TolovlarService {
     }
 
     const totalMonths = this.parseMuddat(debt.muddat);
-    const monthlyAmount = Math.floor(debt.amount / totalMonths);
+    const monthlyAmount = this.getMonthlyAmount(debt.amount, totalMonths);
 
-    const sortedMonths = [...dto.months].sort((a, b) => a - b);
-    for (let i = 1; i < sortedMonths.length; i++) {
-      if (sortedMonths[i] !== sortedMonths[i - 1] + 1) {
+    const months = [...dto.months].sort((a, b) => a - b);
+    for (let i = 1; i < months.length; i++) {
+      if (months[i] !== months[i - 1] + 1) {
         throw new BadRequestException(
-          'Oylar ketma-ket bo‘lishi kerak (masalan: 4,5,6)',
+          'Oylar ketma-ket tanlanishi kerak (masalan: 2,3,4)',
         );
       }
     }
 
-    const unpaidMonths = await this.getUnpaidMonths(dto.debtId);
-    if (sortedMonths[0] !== unpaidMonths[0]) {
+    const unpaid = await this.getUnpaidMonths(dto.debtId);
+    const expectedFirst = unpaid[0];
+    if (months[0] !== expectedFirst) {
       throw new BadRequestException(
-        `To‘lov ${unpaidMonths[0]}-oydan boshlanishi kerak`,
+        `To‘lov ${expectedFirst}-oydan boshlanishi kerak`,
       );
     }
 
     let totalAmount = 0;
-    const updates: {
-      id?: string;
-      month: number;
-      partialAmount: number;
-      status: statusType;
-    }[] = [];
+    const perMonthRemain: Record<number, number> = {};
 
-    for (const month of sortedMonths) {
-      const existing = await this.prisma.tolovOy.findFirst({
-        where: {
-          tolov: { debtId: dto.debtId },
-          month,
-        },
+    for (const m of months) {
+      const ex = await this.prisma.tolovOy.findFirst({
+        where: { tolov: { debtId: dto.debtId }, month: m },
+        select: { partialAmount: true },
       });
-
-      const alreadyPaid = existing?.partialAmount
-        ? monthlyAmount - existing.partialAmount
-        : 0;
-      const remaining = monthlyAmount - alreadyPaid;
-
-      totalAmount += remaining;
-
-      updates.push({
-        id: existing?.id,
-        month,
-        partialAmount: 0,
-        status: statusType.PAID,
-      });
+      const paidSoFar = Number(ex?.partialAmount ?? 0);
+      const remain = Math.max(monthlyAmount - paidSoFar, 0);
+      perMonthRemain[m] = remain;
+      totalAmount += remain;
     }
 
     const remainingDebt = debt.amount - debt.paidAmount;
@@ -198,39 +181,43 @@ export class TolovlarService {
 
     const payment = await this.savePayment(dto, totalAmount);
 
-    for (const item of updates) {
-      if (item.id) {
-        await this.prisma.tolovOy.update({
-          where: { id: item.id },
-          data: {
-            partialAmount: item.partialAmount,
-            status: item.status,
-            tolovId: payment.id,
-          },
-        });
-      } else {
-        await this.prisma.tolovOy.create({
-          data: {
-            month: item.month,
-            partialAmount: item.partialAmount,
-            status: item.status,
-            tolovId: payment.id,
-          },
-        });
-      }
+    for (const m of months) {
+      await this.upsertTolovOyByMonth(dto.debtId, m, {
+        tolovId: payment.id,
+        status: 'PAID',
+        partialAmount: monthlyAmount,
+      });
     }
 
     return payment;
   }
 
   private async getUnpaidMonths(debtId: string): Promise<number[]> {
-    const allMonths = Array.from({ length: 12 }, (_, i) => i + 1);
-    const paidMonths = await this.prisma.tolovOy.findMany({
-      where: { tolov: { debtId }, status: statusType.PAID },
-      select: { month: true },
+    const debt = await this.getDebt(debtId);
+    const totalMonths = this.parseMuddat(debt.muddat);
+    const monthlyAmount = this.getMonthlyAmount(debt.amount, totalMonths);
+
+    const rows = await this.prisma.tolovOy.findMany({
+      where: { tolov: { debtId } },
+      select: { month: true, status: true, partialAmount: true },
     });
-    const paidMonthNumbers = paidMonths.map((m) => m.month);
-    return allMonths.filter((m) => !paidMonthNumbers.includes(m));
+
+    const map = new Map<number, { status: statusType; partial: number }>();
+    for (const r of rows) {
+      map.set(r.month, {
+        status: r.status,
+        partial: Number(r.partialAmount ?? 0),
+      });
+    }
+
+    const list: number[] = [];
+    for (let m = 1; m <= totalMonths; m++) {
+      const rec = map.get(m);
+      const paidSoFar = rec ? rec.partial : 0;
+      const fullyPaid = paidSoFar >= monthlyAmount || rec?.status === 'PAID';
+      if (!fullyPaid) list.push(m);
+    }
+    return list;
   }
 
   private async savePayment(dto: CreateTolovlarDto, amount: number) {
