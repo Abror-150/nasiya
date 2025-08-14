@@ -118,6 +118,8 @@ export class MijozService {
             email: true,
           },
         },
+        PhoneClient: true,
+        ImagesClient: true,
       },
     });
 
