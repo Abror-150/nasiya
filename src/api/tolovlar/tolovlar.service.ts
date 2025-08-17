@@ -182,10 +182,18 @@ export class TolovlarService {
     const payment = await this.savePayment(dto, totalAmount);
 
     for (const m of months) {
+      const ex = await this.prisma.tolovOy.findFirst({
+        where: { tolov: { debtId: dto.debtId }, month: m },
+        select: { partialAmount: true },
+      });
+
+      const paidSoFar = Number(ex?.partialAmount ?? 0) + perMonthRemain[m];
+      const status = paidSoFar >= monthlyAmount ? 'PAID' : 'PENDING';
+
       await this.upsertTolovOyByMonth(dto.debtId, m, {
         tolovId: payment.id,
-        status: 'PAID',
-        partialAmount: monthlyAmount,
+        status,
+        partialAmount: paidSoFar,
       });
     }
 
@@ -332,6 +340,7 @@ export class TolovlarService {
       payments,
     }));
   }
+
   async getDashboardStats(sellerId: string) {
     const today = new Date();
 

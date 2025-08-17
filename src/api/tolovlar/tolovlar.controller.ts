@@ -51,7 +51,6 @@ export class TolovlarController {
   @Get('history')
   getSellerHistory(@Req() req) {
     const sellerId = req.user.userId;
-    console.log(sellerId);
 
     return this.tolovlarService.getTolovlarHistoryBySeller(sellerId);
   }

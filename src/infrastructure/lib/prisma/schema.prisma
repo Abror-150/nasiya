@@ -62,7 +62,8 @@ model ImagesClient {
 }
 
 model Message {
-  id        String        @id @default(uuid())
+  id String @id @default(uuid())
+
   mijozId   String
   text      String
   status    MessageStatus @default(PENDING)
