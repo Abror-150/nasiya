@@ -29,6 +29,10 @@ export class MessageController {
   findAll() {
     return this.messageService.findAll();
   }
+  @Get('without-messages')
+  async findClientsWithoutMessages() {
+    return this.messageService.findClientsWithoutMessages();
+  }
   @Roles('admin', 'seller')
   @Get(':id')
   findOne(@Param('id') id: string) {

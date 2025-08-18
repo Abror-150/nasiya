@@ -24,6 +24,20 @@ export class MessageService {
       },
     });
   }
+  async findClientsWithoutMessages() {
+    return this.prisma.mijoz.findMany({
+      where: {
+        Message: {
+          none: {},
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        PhoneClient: true,
+      },
+    });
+  }
 
   async findOne(id: string) {
     const message = await this.prisma.message.findUnique({
