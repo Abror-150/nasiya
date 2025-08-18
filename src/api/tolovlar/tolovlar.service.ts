@@ -137,12 +137,12 @@ export class TolovlarService {
         'Oylar ro‘yxati bo‘sh bo‘lishi mumkin emas',
       );
     }
-  
+
     const totalMonths = this.parseMuddat(debt.muddat);
     const monthlyAmount = this.getMonthlyAmount(debt.amount, totalMonths);
-  
+
     const months = [...dto.months].sort((a, b) => a - b);
-  
+
     const unpaid = await this.getUnpaidMonths(dto.debtId);
     const expectedFirst = unpaid[0];
     if (months[0] !== expectedFirst) {
@@ -150,10 +150,10 @@ export class TolovlarService {
         `To‘lov ${expectedFirst}-oydan boshlanishi kerak`,
       );
     }
-  
+
     let totalAmount = 0;
     const perMonthRemain: Record<number, number> = {};
-  
+
     for (const m of months) {
       const ex = await this.prisma.tolovOy.findFirst({
         where: { tolov: { debtId: dto.debtId }, month: m },
@@ -164,35 +164,34 @@ export class TolovlarService {
       perMonthRemain[m] = remain;
       totalAmount += remain;
     }
-  
+
     const remainingDebt = debt.amount - debt.paidAmount;
     if (totalAmount > remainingDebt) {
       throw new BadRequestException(
         'Tanlangan oylar uchun to‘lov qarzdan oshib ketdi',
       );
     }
-  
+
     const payment = await this.savePayment(dto, totalAmount);
-  
+
     for (const m of months) {
       const ex = await this.prisma.tolovOy.findFirst({
         where: { tolov: { debtId: dto.debtId }, month: m },
         select: { partialAmount: true },
       });
-  
+
       const paidSoFar = Number(ex?.partialAmount ?? 0) + perMonthRemain[m];
       const status = paidSoFar >= monthlyAmount ? 'PAID' : 'PENDING';
-  
+
       await this.upsertTolovOyByMonth(dto.debtId, m, {
         tolovId: payment.id,
         status,
         partialAmount: paidSoFar,
       });
     }
-  
+
     return payment;
   }
-  
 
   private async getUnpaidMonths(debtId: string): Promise<number[]> {
     const debt = await this.getDebt(debtId);
@@ -239,6 +238,19 @@ export class TolovlarService {
       where: { id: dto.debtId },
       data: { paidAmount: debt.paidAmount + amount },
     });
+    const mijoz = await this.prisma.mijoz.findUnique({
+      where: { id: debt.mijozId },
+      select: { sellerId: true },
+    });
+
+    if (mijoz?.sellerId) {
+      await this.prisma.seller.update({
+        where: { id: mijoz.sellerId },
+        data: {
+          balance: { increment: amount },
+        },
+      });
+    }
 
     return payment;
   }
