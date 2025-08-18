@@ -53,6 +53,10 @@ export class MijozController {
     const sellerId = req.user.userId;
     return this.mijozService.findAll({ page, limit, search }, sellerId);
   }
+  @Patch(':id/favorite')
+  async toggleFavorite(@Param('id') id: string) {
+    return this.mijozService.toggleFavorite(id);
+  }
   @Get(':id/debts')
   getMijozDebts(@Param('id') mijozId: string) {
     return this.mijozService.getMijozDebtsCards(mijozId);

@@ -105,6 +105,15 @@ export class MijozService {
       data: listWithTotal,
     };
   }
+  async toggleFavorite(id: string) {
+    const mijoz = await this.prisma.mijoz.findUnique({ where: { id } });
+    if (!mijoz) throw new NotFoundException('Mijoz topilmadi');
+
+    return this.prisma.mijoz.update({
+      where: { id },
+      data: { star: !mijoz.star },
+    });
+  }
 
   async findOne(id: string) {
     const mijoz = await this.prisma.mijoz.findFirst({

@@ -39,6 +39,7 @@ model Mijoz {
   address      String
   note         String
   sellerId     String
+  star         Boolean?       @default(true)
   ImagesClient ImagesClient[]
   PhoneClient  PhoneClient[]
   Message      Message[]
