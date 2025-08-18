@@ -24,6 +24,11 @@ export class MessageController {
   create(@Body() createMessageDto: CreateMessageDto) {
     return this.messageService.create(createMessageDto);
   }
+  @Post('createChat')
+  async getOrCreate(@Body('mijozId') mijozId: string) {
+    return this.messageService.getOrCreateChat(mijozId);
+  }
+
   @Roles('admin', 'seller')
   @Get()
   findAll() {

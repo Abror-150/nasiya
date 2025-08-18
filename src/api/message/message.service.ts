@@ -12,6 +12,21 @@ export class MessageService {
       data,
     });
   }
+  async getOrCreateChat(mijozId: string) {
+    let chat = await this.prisma.chat.findFirst({
+      where: { mijozId },
+      include: { messages: true },
+    });
+
+    if (!chat) {
+      chat = await this.prisma.chat.create({
+        data: { mijozId },
+        include: { messages: true },
+      });
+    }
+
+    return chat;
+  }
 
   async findAll() {
     return this.prisma.message.findMany({

@@ -44,6 +44,7 @@ model Mijoz {
   Message      Message[]
   Debt         Debt[]
   seller       Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  Chat         Chat[]
 }
 
 model PhoneClient {
@@ -69,13 +70,23 @@ model Message {
   status    MessageStatus @default(PENDING)
   creadetAt DateTime      @default(now())
 
-  mijoz Mijoz @relation(fields: [mijozId], references: [id], onDelete: Cascade)
+  mijoz  Mijoz   @relation(fields: [mijozId], references: [id], onDelete: Cascade)
+  Chat   Chat?   @relation(fields: [chatId], references: [id])
+  chatId String?
 }
 
 enum MessageStatus {
   SENT
   FAILED
   PENDING
+}
+
+model Chat {
+  id        String    @id @default(uuid())
+  mijozId   String
+  mijoz     Mijoz     @relation(fields: [mijozId], references: [id])
+  messages  Message[]
+  createdAt DateTime  @default(now())
 }
 
 model Debt {
