@@ -9,7 +9,10 @@ export class MessageService {
 
   async create(data: CreateMessageDto) {
     return this.prisma.message.create({
-      data,
+      data: {
+        ...data,
+        text: data.text ?? '',
+      },
     });
   }
   async getOrCreateChat(mijozId: string) {
