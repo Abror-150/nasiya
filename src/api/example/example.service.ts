@@ -35,7 +35,9 @@ export class ExampleService {
     return updated;
   }
 
-  remove(id: string) {
-    return `This action removes a #${id} example`;
+  async remove(id: string) {
+    await this.findOne(id)
+    const deleted = await this.prisma.namuna.delete({where:{id}})
+    return deleted
   }
 }
