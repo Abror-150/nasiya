@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { MessageService } from './message.service';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -14,6 +15,7 @@ import { UpdateMessageDto } from './dto/update-message.dto';
 import { JwtAuthGuard } from 'src/common/guard/jwt-authGuard';
 import { RbucGuard } from 'src/common/guard/rbuc.guard';
 import { Roles } from 'src/common/decorator/rbuc.decorator';
+import { ApiQuery } from '@nestjs/swagger';
 
 @Controller('message')
 export class MessageController {
@@ -33,8 +35,13 @@ export class MessageController {
     return this.messageService.findClientsWithoutMessages();
   }
   @Roles('admin', 'seller')
-  @Get(':chatId')
-  findAll(@Param('chatId') chatId: string) {
+  @ApiQuery({
+    name: 'chatId',
+    required: false,
+    type: String,
+  })
+  @Get()
+  findAll(@Query('chatId') chatId: string) {
     return this.messageService.findAll(chatId);
   }
 
