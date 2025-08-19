@@ -12,6 +12,7 @@ export class MessageService {
       data: {
         ...data,
         text: data.text ?? '',
+        chatId: data.chatId,
       },
     });
   }

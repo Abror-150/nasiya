@@ -5,6 +5,6 @@ export class CreateMessageDto {
   mijozId: string;
   @ApiProperty()
   text: string;
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ example: 'string' })
   chatId: string | null;
 }
