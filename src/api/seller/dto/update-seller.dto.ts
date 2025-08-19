@@ -37,4 +37,10 @@ export class UpdateSellerDto {
   @IsOptional()
   @IsEmail()
   email?: string;
+  @ApiPropertyOptional({
+    example: 'url',
+  })
+  @IsOptional()
+  @IsEmail()
+  img?: string;
 }
