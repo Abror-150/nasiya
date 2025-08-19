@@ -34,9 +34,9 @@ export class MessageService {
     return chat;
   }
 
-  async findAll() {
+  async findAll(chatId: string) {
     return this.prisma.message.findMany({
-      distinct: ['mijozId'],
+      where: { chatId },
       orderBy: { creadetAt: 'desc' },
       include: {
         mijoz: {

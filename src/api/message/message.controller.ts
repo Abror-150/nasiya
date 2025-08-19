@@ -30,9 +30,9 @@ export class MessageController {
   }
 
   @Roles('admin', 'seller')
-  @Get()
-  findAll() {
-    return this.messageService.findAll();
+  @Get(':chatId')
+  findAll(@Param('chatId') chatId: string) {
+    return this.messageService.findAll(chatId);
   }
   @Get('without-messages')
   async findClientsWithoutMessages() {
