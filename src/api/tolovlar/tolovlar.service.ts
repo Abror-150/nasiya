@@ -143,14 +143,6 @@ export class TolovlarService {
 
     const months = [...dto.months].sort((a, b) => a - b);
 
-    const unpaid = await this.getUnpaidMonths(dto.debtId);
-    const expectedFirst = unpaid[0];
-    if (months[0] !== expectedFirst) {
-      throw new BadRequestException(
-        `To‘lov ${expectedFirst}-oydan boshlanishi kerak`,
-      );
-    }
-
     let totalAmount = 0;
     const perMonthRemain: Record<number, number> = {};
 
