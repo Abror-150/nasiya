@@ -69,8 +69,6 @@ export class SellerService {
     return updated;
   }
 
-  
-
   async remove(id: string) {
     const exists = await this.prisma.seller.findUnique({ where: { id } });
 
