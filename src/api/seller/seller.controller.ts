@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Req,
+  BadRequestException,
 } from '@nestjs/common';
 import { SellerService } from './seller.service';
 import { CreateSellerDto } from './dto/create-seller.dto';
@@ -51,6 +52,18 @@ export class SellerController {
   update(@Param('id') id: string, @Body() updateSellerDto: UpdateSellerDto) {
     return this.sellerService.update(id, updateSellerDto);
   }
+  @Patch(':id/image')
+async updateImage(
+  @Param('id') id: string,
+  @Body('img') img: string,
+) {
+  if (!img) {
+    throw new BadRequestException('Rasm URL kiritilmadi');
+  }
+
+  return this.sellerService.updateImage(id, img);
+}
+
   @UseGuards(JwtAuthGuard, RbucGuard)
   @Roles('admin')
   @Delete(':id')
