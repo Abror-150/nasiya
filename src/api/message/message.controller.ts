@@ -44,9 +44,15 @@ export class MessageController {
   findAll(@Query('chatId') chatId: string) {
     return this.messageService.findAll(chatId);
   }
+
   @Get('chats')
   allChats() {
     return this.messageService.allChatMessages();
+  }
+  @Roles('admin', 'seller')
+  @Delete(':chatId')
+  deleteChats(@Param('chatId') chatId: string) {
+    return this.messageService.deleteChat(chatId);
   }
 
   @Roles('admin', 'seller')
@@ -59,6 +65,7 @@ export class MessageController {
   remove(@Param('id') id: string) {
     return this.messageService.remove(id);
   }
+
   @Roles('admin', 'seller')
   @Get(':id')
   findOne(@Param('id') id: string) {

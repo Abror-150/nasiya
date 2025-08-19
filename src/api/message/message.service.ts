@@ -117,4 +117,14 @@ export class MessageService {
       },
     });
   }
+
+  async deleteChat(id: string) {
+    const exiting = await this.prisma.chat.findFirst({ where: { id } });
+    if (!exiting) {
+      throw new NotFoundException('chat not found');
+    }
+    const deletedChat = await this.prisma.chat.delete({ where: { id } });
+
+    return deletedChat;
+  }
 }
