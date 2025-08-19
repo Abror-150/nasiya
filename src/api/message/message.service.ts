@@ -43,6 +43,7 @@ export class MessageService {
         mijoz: {
           select: { name: true, PhoneClient: true },
         },
+        Chat: { include: { mijoz: true } },
       },
     });
   }
