@@ -57,6 +57,7 @@ export class MessageService {
         id: true,
         name: true,
         PhoneClient: true,
+        Chat:true
       },
     });
   }

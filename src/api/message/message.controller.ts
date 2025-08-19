@@ -28,21 +28,16 @@ export class MessageController {
   async getOrCreate(@Body('mijozId') mijozId: string) {
     return this.messageService.getOrCreateChat(mijozId);
   }
-
-  @Roles('admin', 'seller')
-  @Get(':chatId')
-  findAll(@Param('chatId') chatId: string) {
-    return this.messageService.findAll(chatId);
-  }
   @Get('without-messages')
   async findClientsWithoutMessages() {
     return this.messageService.findClientsWithoutMessages();
   }
   @Roles('admin', 'seller')
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.messageService.findOne(id);
+  @Get(':chatId')
+  findAll(@Param('chatId') chatId: string) {
+    return this.messageService.findAll(chatId);
   }
+
   @Roles('admin', 'seller')
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateMessageDto: UpdateMessageDto) {
@@ -52,5 +47,10 @@ export class MessageController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.messageService.remove(id);
+  }
+  @Roles('admin', 'seller')
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.messageService.findOne(id);
   }
 }
