@@ -24,7 +24,10 @@ export class MessageService {
     if (!chat) {
       chat = await this.prisma.chat.create({
         data: { mijozId },
-        include: { messages: true },
+        include: {
+          messages: true,
+          mijoz: { select: { name: true, PhoneClient: true } },
+        },
       });
     }
 
