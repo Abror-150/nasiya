@@ -94,7 +94,7 @@ model Debt {
   id         String       @id @default(uuid())
   name       String
   date       DateTime     @default(now())
-  amount     Int
+  amount     BigInt
   paidAmount Int          @default(0)
   muddat     String
   note       String
