@@ -46,6 +46,22 @@ export class MessageService {
       },
     });
   }
+
+  async allChatMessages() {
+    const data = await this.prisma.chat.findMany({
+      include: {
+        mijoz: {
+          select: {
+            name: true,
+            PhoneClient: {
+              select: { phoneNumber: true },
+            },
+          },
+        },
+      },
+    });
+    return data;
+  }
   async findClientsWithoutMessages() {
     return this.prisma.mijoz.findMany({
       where: {
