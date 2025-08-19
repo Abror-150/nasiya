@@ -46,23 +46,12 @@ export class SellerController {
     return this.sellerService.findOne(id);
   }
   @UseGuards(JwtAuthGuard, RbucGuard)
-  @Roles('admin', "seller")
+  @Roles('admin', 'seller')
   @Patch(':id')
   @ApiBody({ type: UpdateSellerDto })
   update(@Param('id') id: string, @Body() updateSellerDto: UpdateSellerDto) {
     return this.sellerService.update(id, updateSellerDto);
   }
-  @Patch(':id/image')
-async updateImage(
-  @Param('id') id: string,
-  @Body('img') img: string,
-) {
-  if (!img) {
-    throw new BadRequestException('Rasm URL kiritilmadi');
-  }
-
-  return this.sellerService.updateImage(id, img);
-}
 
   @UseGuards(JwtAuthGuard, RbucGuard)
   @Roles('admin')

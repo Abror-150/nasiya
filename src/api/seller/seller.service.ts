@@ -69,12 +69,7 @@ export class SellerService {
     return updated;
   }
 
-  async updateImage(id: string, img: string) {
-    return this.prisma.seller.update({
-      where: { id },
-      data: { img },
-    });
-  }
+  
 
   async remove(id: string) {
     const exists = await this.prisma.seller.findUnique({ where: { id } });
