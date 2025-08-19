@@ -45,7 +45,7 @@ export class SellerController {
     return this.sellerService.findOne(id);
   }
   @UseGuards(JwtAuthGuard, RbucGuard)
-  @Roles('admin')
+  @Roles('admin', "seller")
   @Patch(':id')
   @ApiBody({ type: UpdateSellerDto })
   update(@Param('id') id: string, @Body() updateSellerDto: UpdateSellerDto) {
