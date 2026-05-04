@@ -1,45 +1,44 @@
-# 💳 Nasiya Savdo – Backend
+# Nasiya Savdo API
 
-**Nasiya Savdo** — bu mijozlarga **qarz (nasiya) asosida tovar yoki xizmat sotishni boshqaruvchi tizim**.  
-Platforma orqali mijozlar qarzga tovar olishi, sotuvchilar esa qarz va to‘lov jarayonlarini nazorat qilishi mumkin.  
+Mijozlarga qarz asosida tovar/xizmat sotishni boshqaruvchi tizim.
+Sotuvchilar qarz va to'lov jarayonlarini to'liq nazorat qiladi.
 
----
+## Stack
+NestJS • PostgreSQL • Prisma • Docker • JWT
 
-## 🚀 Texnologiyalar (Stack)
+## Asosiy funksiyalar
+- Sotuvchi va admin role tizimi
+- Mijozlarni ro'yxatga olish (rasm, telefon, manzil)
+- Qarz berish — muddatli to'lov asosida
+- 3 xil to'lov usuli:
+  - Bir oylik (one-month)
+  - Ko'p oylik (multi-month)
+  - Qisman (custom amount)
+- Oyma-oy to'lov holati: PAID / UNPAID / PENDING
+- Dashboard statistika — umumiy qarz, to'langan, qoldiq
+- To'lovlar tarixi — sana bo'yicha guruhlangan
 
-- **Backend:** Node.js, NestJS  
-- **ORM:** Prisma  
-- **Database:** PostgreSQL  
-- **API:** REST  
-- **Deployment:** AWS / PM2 / Nginx (opsiyaga qarab)  
-
----
-
-## 📌 Asosiy funksiyalar
-
-- 👥 **Mijozlarni ro‘yxatga olish** (shaxsiy ma’lumotlar, kontaktlar).  
-- 💵 **Qarz berish jarayoni** – tovar yoki xizmatni muddatli to‘lov asosida berish.  
-- 📊 **To‘lovlarni boshqarish** – bir oylik, ko‘p oylik va qisman (custom) to‘lovlar.  
-- 🔎 **Qarz monitoringi** – to‘langan va qolgan summalarni kuzatish.  
-- 📂 **Omonat / qarz tarixini yuritish**.  
-- 📑 **Hisobotlar** – sotuvchi va mijoz uchun qulay ko‘rinishda.  
-
----
-
-## ⚙️ O‘rnatish va ishga tushirish
-
-```bash
-# Reponi clone qiling
+## Ishga tushirish
 git clone https://github.com/abror-150/nasiya-savdo.git
-
-# Loyihaga kiring
 cd nasiya-savdo
-
-# Paketlarni o‘rnating
+cp .env.example .env
 npm install
-
-# Ma’lumotlar bazasini migratsiya qiling
 npx prisma migrate dev
-
-# Loyihani ishga tushiring
 npm run start:dev
+
+## Environment variables (.env.example)
+DATABASE_URL=postgresql://user:password@localhost:5432/nasiya
+JWT_SECRET=your-secret-key
+PORT=3000
+
+## API endpoints
+POST /auth/login              — Kirish
+GET  /mijoz                   — Mijozlar ro'yxati
+POST /mijoz                   — Mijoz qo'shish
+POST /debt                    — Qarz yaratish
+GET  /debt/:id                — Qarz ma'lumoti
+POST /tolovlar/one-month      — Bir oylik to'lov
+POST /tolovlar/multi-month    — Ko'p oylik to'lov
+POST /tolovlar/custom         — Qisman to'lov
+GET  /tolovlar/dashboard      — Statistika
+GET  /tolovlar/history        — To'lovlar tarixi
